@@ -155,12 +155,13 @@ export const DEFAULT_SECTIONS = [
   ]},
 ];
 
-export const OWNERS = ["You", "Spencer", "Chase"];
+export const OWNERS = ["You", "Spencer", "Chase", "Levi"];
 
 export const OWNER_COLORS = {
   You: "#f59e0b",
   Spencer: "#818cf8",
   Chase: "#22d3ee",
+  Levi: "#34d399",
 };
 
 export const PRIORITY_COLORS = {
