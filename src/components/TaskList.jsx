@@ -52,8 +52,34 @@ export default function TaskList({
 
   const deleteDupeTask = (taskId) => {
     save({ ...d, sections: d.sections.map((s) => ({ ...s, items: s.items.filter((i) => i.id !== taskId) })) });
-    // Remove from groups display
     setDupeGroups(prev => prev?.map(g => ({ ...g, indices: g.indices.filter(idx => allItems[idx]?.id !== taskId) })).filter(g => g.indices.length > 1));
+  };
+
+  const applyAllDupeSuggestions = () => {
+    if (!dupeGroups?.length) return;
+    const idsToRemove = new Set();
+    dupeGroups.forEach((group) => {
+      // Keep first item in group, remove the rest
+      group.indices.slice(1).forEach((idx) => {
+        const task = allItems[idx];
+        if (task) idsToRemove.add(task.id);
+      });
+    });
+    save({ ...d, sections: d.sections.map((s) => ({ ...s, items: s.items.filter((i) => !idsToRemove.has(i.id)) })) });
+    setDupeGroups(null);
+  };
+
+  const removeAllInGroup = (groupIdx) => {
+    if (!dupeGroups?.[groupIdx]) return;
+    const group = dupeGroups[groupIdx];
+    const idsToRemove = new Set();
+    // Keep first, remove rest
+    group.indices.slice(1).forEach((idx) => {
+      const task = allItems[idx];
+      if (task) idsToRemove.add(task.id);
+    });
+    save({ ...d, sections: d.sections.map((s) => ({ ...s, items: s.items.filter((i) => !idsToRemove.has(i.id)) })) });
+    setDupeGroups(prev => prev?.filter((_, i) => i !== groupIdx));
   };
 
   const ist = `rounded border bg-transparent outline-none`;
@@ -151,15 +177,29 @@ export default function TaskList({
       {/* Duplicate Results */}
       {dupeGroups && (
         <div className="mb-3 p-3 rounded-xl" style={{ background: theme.accentBg, border: "1px solid " + theme.accent + "30" }}>
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
             <span className="font-bold" style={{ fontSize: 12, color: theme.accent }}>
               {dupeGroups.length > 0 ? `Found ${dupeGroups.length} duplicate group${dupeGroups.length !== 1 ? "s" : ""}` : "No duplicates found!"}
             </span>
-            <button onClick={() => setDupeGroups(null)} className="bg-transparent border-none cursor-pointer" style={{ color: theme.textDim }}><X size={14} /></button>
+            <div className="flex items-center gap-2">
+              {dupeGroups.length > 0 && (
+                <button onClick={applyAllDupeSuggestions}
+                  className="px-3 py-1.5 rounded-lg border-none text-xs font-bold cursor-pointer"
+                  style={{ background: theme.accent, color: "#fff" }}
+                >Apply All Suggestions</button>
+              )}
+              <button onClick={() => setDupeGroups(null)} className="bg-transparent border-none cursor-pointer" style={{ color: theme.textDim }}><X size={14} /></button>
+            </div>
           </div>
           {dupeGroups.map((group, gi) => (
             <div key={gi} className="mb-2 p-2.5 rounded-lg" style={{ background: theme.bgCard, border: "1px solid " + theme.border }}>
-              <div className="mb-1.5" style={{ fontSize: 10, color: theme.textMuted }}>{group.reason} — <span style={{ color: group.suggestion === "merge" ? theme.accent : "#ef4444" }}>{group.suggestion}</span></div>
+              <div className="flex items-center justify-between mb-1.5">
+                <span style={{ fontSize: 10, color: theme.textMuted }}>{group.reason} — <span style={{ color: group.suggestion === "merge" ? theme.accent : "#ef4444" }}>{group.suggestion}</span></span>
+                <button onClick={() => removeAllInGroup(gi)}
+                  className="px-2 py-0.5 rounded text-[9px] font-bold border-none cursor-pointer shrink-0"
+                  style={{ background: "#ef444420", color: "#ef4444" }}
+                >Keep first, remove rest</button>
+              </div>
               {group.indices.map((idx) => {
                 const task = allItems[idx];
                 if (!task) return null;

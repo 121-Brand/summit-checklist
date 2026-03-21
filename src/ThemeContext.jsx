@@ -1,14 +1,34 @@
-import { createContext, useContext, useState, useEffect } from "react";
-import { THEMES, getTheme, loadThemePreference, saveThemePreference } from "./themes";
+import { createContext, useContext, useState, useEffect, useCallback } from "react";
+import { THEMES, getTheme, loadThemePreference, saveThemePreference, saveCustomTheme, generateThemeFromAccent } from "./themes";
 
 const ThemeContext = createContext();
 
 export function ThemeProvider({ children }) {
-  const [themeId, setThemeId] = useState(loadThemePreference);
-  const theme = getTheme(themeId);
+  const [themeId, setThemeIdState] = useState(loadThemePreference);
+  const [customTheme, setCustomThemeState] = useState(() => {
+    try { const r = localStorage.getItem("summit-custom-theme"); return r ? JSON.parse(r) : null; } catch { return null; }
+  });
+
+  const theme = themeId === "custom" && customTheme ? customTheme : getTheme(themeId);
+
+  const setThemeId = useCallback((id) => {
+    setThemeIdState(id);
+    saveThemePreference(id);
+  }, []);
+
+  const setCustomTheme = useCallback((t) => {
+    setCustomThemeState(t);
+    saveCustomTheme(t);
+    setThemeIdState("custom");
+    saveThemePreference("custom");
+  }, []);
+
+  const createCustomFromAccent = useCallback((accent, name, isDark) => {
+    const t = generateThemeFromAccent(accent, name, isDark);
+    setCustomTheme(t);
+  }, [setCustomTheme]);
 
   useEffect(() => {
-    saveThemePreference(themeId);
     const root = document.documentElement;
     root.style.setProperty("--bg", theme.bg);
     root.style.setProperty("--bg-card", theme.bgCard);
@@ -24,10 +44,10 @@ export function ThemeProvider({ children }) {
     root.style.setProperty("--header-bg", theme.headerBg);
     document.body.style.background = theme.bg;
     document.body.style.color = theme.text;
-  }, [themeId, theme]);
+  }, [themeId, theme, customTheme]);
 
   return (
-    <ThemeContext.Provider value={{ themeId, setThemeId, theme, themes: THEMES }}>
+    <ThemeContext.Provider value={{ themeId, setThemeId, theme, themes: THEMES, customTheme, setCustomTheme, createCustomFromAccent }}>
       {children}
     </ThemeContext.Provider>
   );

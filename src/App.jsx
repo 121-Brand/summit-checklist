@@ -16,6 +16,7 @@ import KanbanBoard from "./components/KanbanBoard";
 import BurndownChart from "./components/BurndownChart";
 import SettingsPage from "./components/SettingsPage";
 import DocumentHub from "./components/DocumentHub";
+import WelcomeScreen from "./components/WelcomeScreen";
 
 const uid = () => "t" + Date.now() + Math.random().toString(36).slice(2, 6);
 
@@ -23,6 +24,9 @@ export default function App() {
   const store = useStore();
   const { theme } = useTheme();
 
+  const [onboarded, setOnboarded] = useState(() => {
+    try { return localStorage.getItem("summit-onboarded") === "true"; } catch { return false; }
+  });
   const [view, setView] = useState("dash");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -291,6 +295,10 @@ export default function App() {
   const sidebarWidth = isDesktop ? (sidebarCollapsed ? 56 : 200) : 0;
 
   const inputStyle = { background: theme.bg, border: `1px solid ${theme.border}`, color: theme.text };
+
+  if (!onboarded) {
+    return <WelcomeScreen onComplete={() => { setOnboarded(true); try { localStorage.setItem("summit-onboarded", "true"); } catch {} }} />;
+  }
 
   return (
     <div className="min-h-screen" style={{ background: theme.bg, color: theme.text, fontFamily: "'DM Sans', system-ui, sans-serif" }}>
