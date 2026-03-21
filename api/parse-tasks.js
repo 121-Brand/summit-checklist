@@ -3,7 +3,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { text, filename } = req.body;
+  const { text, context } = req.body;
   if (!text || !text.trim()) {
     return res.status(400).json({ error: "No text content provided" });
   }
@@ -12,6 +12,19 @@ export default async function handler(req, res) {
   if (!apiKey) {
     return res.status(500).json({ error: "Anthropic API key not configured. Add ANTHROPIC_API_KEY to Vercel environment variables." });
   }
+
+  // Build compact context block from project questionnaire
+  const ctx = context || {};
+  const teamList = (ctx.team || []).map(m => m.name + "(" + m.role + ")").join(", ");
+  const existingSections = (ctx.sections || []).join(", ");
+  const deadline = ctx.deadline || "none";
+  const goal = ctx.goal || "complete project checklist";
+
+  // Efficient system prompt - compact, no wasted tokens
+  const systemPrompt = "You extract tasks from documents into structured JSON. Rules: Each task must be actionable with one clear deliverable. Skip headers, intros, duplicates, vague items. Assign owner by role match. Assign priority by deadline proximity and impact: CRITICAL=blocks launch, HIGH=important, MEDIUM=nice-to-have. Group into logical sections, reuse existing sections when they fit. Return ONLY valid JSON, no other text.";
+
+  // Compact user prompt with project context
+  const userPrompt = "PROJECT: " + goal + "\nTEAM: " + (teamList || "You(owner), Spencer(builder), Chase(QA)") + "\nDEADLINE: " + deadline + "\nEXISTING SECTIONS: " + (existingSections || "none yet") + "\nOWNERS: " + ((ctx.team || []).map(m => m.name).join(", ") || "You, Spencer, Chase") + "\n\nDOCUMENT:\n" + text.slice(0, 15000) + '\n\nReturn JSON: {"tasks":[{"text":"...","owner":"...","priority":"CRITICAL|HIGH|MEDIUM","section":"..."}]}';
 
   try {
     const response = await fetch("https://api.anthropic.com/v1/messages", {
@@ -22,34 +35,10 @@ export default async function handler(req, res) {
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 4096,
-        messages: [
-          {
-            role: "user",
-            content: `You are parsing a document into checklist tasks for a construction business AI agent system pre-sales readiness checklist.
-
-The document is: "${filename || "uploaded file"}"
-
-Extract every actionable task, requirement, or checklist item from this document. For each item, determine:
-- text: The task description (clear, actionable)
-- owner: Who should do it - one of "You" (business owner/strategy), "Spencer" (builder/customizer), or "Chase" (QA/onboarding). Use your best judgment based on the task type.
-- priority: "CRITICAL", "HIGH", or "MEDIUM"
-- section: A logical grouping/category for the task
-
-Respond with ONLY valid JSON in this exact format, no other text:
-{
-  "tasks": [
-    {"text": "...", "owner": "Chase", "priority": "CRITICAL", "section": "..."},
-    ...
-  ]
-}
-
-Here is the document content:
-
-${text.slice(0, 30000)}`
-          }
-        ]
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 2048,
+        system: systemPrompt,
+        messages: [{ role: "user", content: userPrompt }]
       })
     });
 
@@ -61,23 +50,23 @@ ${text.slice(0, 30000)}`
 
     const content = data.content?.[0]?.text || "";
     
-    // Parse the JSON from Claude's response
     let parsed;
     try {
-      // Try to extract JSON from the response
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         parsed = JSON.parse(jsonMatch[0]);
       } else {
-        throw new Error("No JSON found in response");
+        throw new Error("No JSON found");
       }
     } catch (e) {
-      return res.status(500).json({ error: "Failed to parse AI response", raw: content.slice(0, 500) });
+      return res.status(500).json({ error: "Failed to parse AI response", raw: content.slice(0, 300) });
     }
 
-    return res.status(200).json(parsed);
+    return res.status(200).json({
+      tasks: parsed.tasks || [],
+      usage: data.usage || {}
+    });
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }
 }
-// env trigger

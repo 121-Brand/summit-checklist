@@ -32,7 +32,7 @@ export async function extractText(file) {
     return { text: allText, type: "xlsx", lines };
   }
   
-  // Fallback: try reading as text
+  // Fallback
   try {
     const text = await file.text();
     return { text, type: "unknown", lines: text.split("\n").map(l => l.trim()).filter(l => l.length > 2) };
@@ -41,12 +41,15 @@ export async function extractText(file) {
   }
 }
 
-// Sends extracted text to AI for task parsing
-export async function aiParseTasks(text, filename) {
+// Sends extracted text to AI with project context for efficient parsing
+export async function aiParseTasks(text, projectContext) {
   const response = await fetch("/api/parse-tasks", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text: text.slice(0, 30000), filename }),
+    body: JSON.stringify({
+      text: text.slice(0, 15000),
+      context: projectContext
+    }),
   });
   
   if (!response.ok) {

@@ -61,6 +61,8 @@ export default function App() {
   const [newSecName, setNewSecName] = useState("");
   const [newSecDue, setNewSecDue] = useState("2026-03-28");
   const [scrollTarget, setScrollTarget] = useState(null);
+  const [showSetup, setShowSetup] = useState(false);
+  const [aiUsage, setAiUsage] = useState(null);
   const fileRef = useRef(null);
   const sectionRefs = useRef({});
 
@@ -194,9 +196,17 @@ export default function App() {
     if (!importTasks || importTasks.length === 0) return;
     setAiParsing(true);
     setImportError(null);
+    setAiUsage(null);
     try {
       const rawText = importTasks.map((t) => t.text).join("\n");
-      const result = await aiParseTasks(rawText, "uploaded file");
+      // Build project context from stored data
+      const projectContext = {
+        goal: d.context?.goal || "complete project checklist",
+        team: d.context?.team || OWNERS.map(o => ({ name: o, role: o === "You" ? "Owner/Strategy" : o === "Spencer" ? "Builder/Customizer" : "QA/Onboarding" })),
+        deadline: d.context?.deadline || "2026-03-28",
+        sections: d.sections.map(s => s.title),
+      };
+      const result = await aiParseTasks(rawText, projectContext);
       if (result.tasks && result.tasks.length > 0) {
         const tasks = result.tasks.map((t, i) => ({
           _id: i, text: t.text, owner: t.owner || "Chase", p: t.priority || "HIGH",
@@ -204,6 +214,7 @@ export default function App() {
         }));
         setImportTasks(tasks);
         setImportMode("ai");
+        if (result.usage) setAiUsage(result.usage);
       } else {
         setImportError("AI could not extract any tasks from this document.");
       }
@@ -472,7 +483,13 @@ export default function App() {
             )}
 
             <div className="mt-3 pt-2 border-t border-slate-700 text-[9px] text-slate-500">
-              Supports: .csv, .txt, .docx (Word), .xlsx (Excel) — AI Parse uses Claude to auto-categorize tasks with owners and sections
+              Supports: .csv, .txt, .docx (Word), .xlsx (Excel)
+              {aiUsage ? (
+                <span className="ml-2 text-cyan-500">AI used {aiUsage.input_tokens + aiUsage.output_tokens} tokens (~${((aiUsage.input_tokens * 0.8 + aiUsage.output_tokens * 4) / 1000000).toFixed(4)})</span>
+              ) : " — AI Parse uses Claude Haiku for fast, cheap task extraction"}
+              {!d.context?.goal ? (
+                <span className="ml-1 text-amber-400 cursor-pointer" onClick={() => { setShowSetup(true); }}> • Set up project context for better results</span>
+              ) : null}
             </div>
           </div>
         </div>
@@ -527,6 +544,118 @@ export default function App() {
             <input value={newSecName} onChange={(e) => setNewSecName(e.target.value)} placeholder="Name..." className={`flex-1 px-1.5 py-1 text-[10px] ${ist}`} onKeyDown={(e) => e.key === "Enter" && addSection()} />
             <input type="date" value={newSecDue} onChange={(e) => setNewSecDue(e.target.value)} className={`px-1 py-1 text-[10px] ${ist}`} />
             <button onClick={addSection} className="px-2 py-1 rounded bg-cyan-500 text-white border-none text-[10px] cursor-pointer">Add</button>
+          </div>
+          <button onClick={() => setShowSetup(true)} className="mt-2 w-full py-1.5 rounded-md bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-[10px] font-semibold cursor-pointer flex items-center justify-center gap-1">
+            <Sparkles size={10} /> Project Setup &amp; AI Context
+          </button>
+        </div>
+      ) : null}
+
+      {/* Project Setup Modal */}
+      {showSetup ? (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setShowSetup(false)}>
+          <div onClick={(e) => e.stopPropagation()} className="bg-slate-800 rounded-xl p-5 w-full max-w-lg max-h-[85vh] overflow-auto border border-slate-700">
+            <div className="flex items-center gap-2 mb-4">
+              <Sparkles size={18} className="text-cyan-400" />
+              <div className="text-base font-bold">Project Setup</div>
+              <span className="text-[9px] text-slate-500 ml-auto">This context makes AI parsing smarter and more accurate</span>
+            </div>
+
+            <div className="mb-3">
+              <label className="text-[10px] font-bold text-slate-400 uppercase mb-1 block">Project Goal</label>
+              <textarea
+                value={d.context?.goal || ""}
+                onChange={(e) => save({ ...d, context: { ...d.context, goal: e.target.value } })}
+                placeholder="What is the end goal? e.g. 'Launch AI agent package for construction businesses by March 28'"
+                className={`w-full p-2 text-xs resize-none h-16 ${ist}`}
+              />
+            </div>
+
+            <div className="mb-3">
+              <label className="text-[10px] font-bold text-slate-400 uppercase mb-1 block">Deadline</label>
+              <input
+                type="date"
+                value={d.context?.deadline || ""}
+                onChange={(e) => save({ ...d, context: { ...d.context, deadline: e.target.value } })}
+                className={`w-full p-2 text-xs ${ist}`}
+              />
+            </div>
+
+            <div className="mb-3">
+              <label className="text-[10px] font-bold text-slate-400 uppercase mb-1 block">Team Members</label>
+              <div className="space-y-1.5">
+                {(d.context?.team || OWNERS.map((o) => ({ name: o, role: "" }))).map((member, i) => (
+                  <div key={i} className="flex gap-2">
+                    <input
+                      value={member.name}
+                      onChange={(e) => {
+                        const team = [...(d.context?.team || OWNERS.map((o) => ({ name: o, role: "" })))];
+                        team[i] = { ...team[i], name: e.target.value };
+                        save({ ...d, context: { ...d.context, team } });
+                      }}
+                      placeholder="Name"
+                      className={`flex-1 p-1.5 text-xs ${ist}`}
+                    />
+                    <input
+                      value={member.role}
+                      onChange={(e) => {
+                        const team = [...(d.context?.team || OWNERS.map((o) => ({ name: o, role: "" })))];
+                        team[i] = { ...team[i], role: e.target.value };
+                        save({ ...d, context: { ...d.context, team } });
+                      }}
+                      placeholder="Role (e.g. QA, Builder, Strategy)"
+                      className={`flex-1 p-1.5 text-xs ${ist}`}
+                    />
+                    <button
+                      onClick={() => {
+                        const team = [...(d.context?.team || OWNERS.map((o) => ({ name: o, role: "" })))];
+                        team.splice(i, 1);
+                        save({ ...d, context: { ...d.context, team } });
+                      }}
+                      className="text-red-500 bg-transparent border-none cursor-pointer"
+                    ><Trash2 size={12} /></button>
+                  </div>
+                ))}
+                <button
+                  onClick={() => {
+                    const team = [...(d.context?.team || OWNERS.map((o) => ({ name: o, role: "" }))), { name: "", role: "" }];
+                    save({ ...d, context: { ...d.context, team } });
+                  }}
+                  className="text-[10px] text-cyan-400 bg-transparent border border-cyan-500/30 rounded px-2 py-1 cursor-pointer flex items-center gap-1"
+                ><Plus size={10} /> Add team member</button>
+              </div>
+            </div>
+
+            <div className="mb-3">
+              <label className="text-[10px] font-bold text-slate-400 uppercase mb-1 block">Project Description</label>
+              <textarea
+                value={d.context?.description || ""}
+                onChange={(e) => save({ ...d, context: { ...d.context, description: e.target.value } })}
+                placeholder="Brief description: What are you building? What modules/phases? Any key constraints?"
+                className={`w-full p-2 text-xs resize-none h-20 ${ist}`}
+              />
+            </div>
+
+            <div className="mb-4">
+              <label className="text-[10px] font-bold text-slate-400 uppercase mb-1 block">Priority Strategy</label>
+              <textarea
+                value={d.context?.priorityStrategy || ""}
+                onChange={(e) => save({ ...d, context: { ...d.context, priorityStrategy: e.target.value } })}
+                placeholder="How should tasks be prioritized? e.g. 'Testing and QA first, documentation second. Everything blocking client demo is CRITICAL.'"
+                className={`w-full p-2 text-xs resize-none h-16 ${ist}`}
+              />
+            </div>
+
+            <div className="p-3 rounded-lg bg-slate-900 border border-slate-700 mb-3">
+              <div className="text-[9px] text-slate-500 font-semibold uppercase mb-1">How this helps AI Parse</div>
+              <div className="text-[10px] text-slate-400 leading-relaxed">
+                When you upload documents and click "AI Parse", this context tells the AI who does what, what matters most, and how to organize tasks. It uses Claude Haiku (fastest, cheapest model) — each parse costs ~$0.001. The AI will automatically assign owners by role, set priorities based on your deadline, and group tasks into your existing sections.
+              </div>
+            </div>
+
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setShowSetup(false)} className="px-4 py-2 rounded-md bg-cyan-500 text-white border-none text-xs font-bold cursor-pointer">Done</button>
+            </div>
           </div>
         </div>
       ) : null}
