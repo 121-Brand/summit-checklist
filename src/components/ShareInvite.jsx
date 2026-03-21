@@ -1,15 +1,15 @@
 import { useState } from "react";
-import { Share2, Copy, Check, Link, Users, Loader2, RefreshCw, Globe, Lock, X } from "lucide-react";
+import { Share2, Copy, Check, Link, Users, Loader2, Globe, Lock, X } from "lucide-react";
 import { useTheme } from "../ThemeContext";
 
 export default function ShareInvite({ d, save, store }) {
   const { theme } = useTheme();
   const [sharing, setSharing] = useState(false);
-  const [shareLink, setShareLink] = useState(d.shareId ? window.location.origin + "?share=" + d.shareId : null);
+  const [shareLink, setShareLink] = useState(null);
   const [copied, setCopied] = useState(false);
-  const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState(null);
-  const [canEdit, setCanEdit] = useState(d.sharePermissions?.canEdit ?? true);
+  const [canEdit, setCanEdit] = useState(true);
+  const [linkSize, setLinkSize] = useState(null);
 
   const createShare = async () => {
     setSharing(true); setError(null);
@@ -17,44 +17,28 @@ export default function ShareInvite({ d, save, store }) {
       const res = await fetch("/api/share", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "create", data: d, permissions: { canEdit } })
+        body: JSON.stringify({ action: "encode", data: d, permissions: { canEdit } })
       });
       const json = await res.json();
-      if (json.shareId) {
-        const link = window.location.origin + "?share=" + json.shareId;
-        setShareLink(link);
-        save({ ...d, shareId: json.shareId, sharePermissions: { canEdit } });
+      if (json.encoded) {
+        const link = window.location.origin + "?project=" + json.encoded;
+        if (link.length > 100000) {
+          setError("Project is too large to share via link (" + Math.round(link.length / 1024) + "KB). Try removing some documents or notes first.");
+        } else {
+          setShareLink(link);
+          setLinkSize(json.size);
+        }
       } else {
-        setError(json.error || "Failed to create share link");
+        setError(json.error || "Failed to generate share link");
       }
     } catch (e) { setError("Failed: " + e.message); }
     setSharing(false);
-  };
-
-  const updateShare = async () => {
-    if (!d.shareId) return;
-    setSyncing(true); setError(null);
-    try {
-      const res = await fetch("/api/share", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "update", shareId: d.shareId, data: d, permissions: { canEdit } })
-      });
-      const json = await res.json();
-      if (!json.shareId) setError(json.error || "Failed to sync");
-    } catch (e) { setError("Sync failed: " + e.message); }
-    setSyncing(false);
   };
 
   const copyLink = () => {
     if (shareLink) {
       navigator.clipboard.writeText(shareLink).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); });
     }
-  };
-
-  const revokeShare = () => {
-    save({ ...d, shareId: null, sharePermissions: null });
-    setShareLink(null);
   };
 
   const inputStyle = { background: theme.bg, border: `1px solid ${theme.border}`, color: theme.text };
@@ -65,17 +49,16 @@ export default function ShareInvite({ d, save, store }) {
         Share & Invite
       </div>
       <div style={{ fontSize: 13, color: theme.textMuted, marginBottom: 20 }}>
-        Share your project with teammates via a link. Anyone with the link can view (and optionally edit) the project.
+        Generate a share link that contains your entire project. Anyone who opens it gets their own copy to view or edit.
       </div>
 
       {error && (
         <div className="mb-4 p-3 rounded-xl flex items-center gap-2" style={{ background: "#ef444412", border: "1px solid #ef444430" }}>
-          <span style={{ fontSize: 12, color: "#ef4444" }}>{error}</span>
-          <button onClick={() => setError(null)} className="ml-auto bg-transparent border-none cursor-pointer"><X size={14} color="#ef4444" /></button>
+          <span style={{ fontSize: 12, color: "#ef4444", flex: 1 }}>{error}</span>
+          <button onClick={() => setError(null)} className="shrink-0 bg-transparent border-none cursor-pointer"><X size={14} color="#ef4444" /></button>
         </div>
       )}
 
-      {/* Share status card */}
       <div className="rounded-xl p-5 mb-6" style={{ background: theme.bgCard, border: `1px solid ${theme.border}` }}>
         {shareLink ? (
           <div>
@@ -84,40 +67,23 @@ export default function ShareInvite({ d, save, store }) {
                 <Globe size={16} style={{ color: "#22c55e" }} />
               </div>
               <div>
-                <div className="font-bold" style={{ fontSize: 13, color: theme.text }}>Project is shared</div>
-                <div style={{ fontSize: 11, color: theme.textMuted }}>Anyone with the link can {canEdit ? "view and edit" : "view"}</div>
+                <div className="font-bold" style={{ fontSize: 13, color: theme.text }}>Share link ready!</div>
+                <div style={{ fontSize: 11, color: theme.textMuted }}>
+                  {canEdit ? "Full edit access" : "View only"} · {Math.round((linkSize || 0) / 1024)}KB encoded
+                </div>
               </div>
             </div>
 
-            {/* Link display */}
             <div className="flex gap-2 mb-4">
-              <input value={shareLink} readOnly className="flex-1 px-3 py-2 text-xs rounded-lg outline-none font-mono" style={inputStyle} />
-              <button onClick={copyLink} className="flex items-center gap-1.5 px-4 py-2 rounded-lg border-none cursor-pointer font-semibold" style={{ fontSize: 12, background: copied ? "#22c55e" : theme.accent, color: "#fff" }}>
+              <input value={shareLink} readOnly className="flex-1 px-3 py-2 text-xs rounded-lg outline-none font-mono truncate" style={inputStyle} onClick={(e) => e.target.select()} />
+              <button onClick={copyLink} className="flex items-center gap-1.5 px-4 py-2 rounded-lg border-none cursor-pointer font-semibold shrink-0" style={{ fontSize: 12, background: copied ? "#22c55e" : theme.accent, color: "#fff" }}>
                 {copied ? <><Check size={13} /> Copied!</> : <><Copy size={13} /> Copy</>}
               </button>
             </div>
 
-            {/* Permission toggle */}
-            <div className="flex items-center gap-3 mb-4 p-3 rounded-lg" style={{ background: theme.bg, border: `1px solid ${theme.border}` }}>
-              <span style={{ fontSize: 12, color: theme.text, fontWeight: 600 }}>Permissions:</span>
-              <div className="flex gap-0.5 p-0.5 rounded-lg" style={{ background: theme.bgCard, border: `1px solid ${theme.border}` }}>
-                <button onClick={() => setCanEdit(true)} className="flex items-center gap-1 px-3 py-1.5 rounded-md border-none cursor-pointer" style={{ fontSize: 11, fontWeight: 600, background: canEdit ? theme.accent : "transparent", color: canEdit ? "#fff" : theme.textDim }}>
-                  <Users size={11} /> Can Edit
-                </button>
-                <button onClick={() => setCanEdit(false)} className="flex items-center gap-1 px-3 py-1.5 rounded-md border-none cursor-pointer" style={{ fontSize: 11, fontWeight: 600, background: !canEdit ? theme.accent : "transparent", color: !canEdit ? "#fff" : theme.textDim }}>
-                  <Lock size={11} /> View Only
-                </button>
-              </div>
-            </div>
-
-            {/* Actions */}
             <div className="flex gap-2">
-              <button onClick={updateShare} disabled={syncing} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg border-none cursor-pointer font-semibold" style={{ fontSize: 12, background: theme.accent, color: "#fff", opacity: syncing ? 0.6 : 1 }}>
-                {syncing ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
-                {syncing ? "Syncing..." : "Sync Latest Changes"}
-              </button>
-              <button onClick={revokeShare} className="px-4 py-2.5 rounded-lg border cursor-pointer font-semibold" style={{ fontSize: 12, background: "transparent", borderColor: "#ef444440", color: "#ef4444" }}>
-                Revoke
+              <button onClick={() => { setShareLink(null); setLinkSize(null); }} className="flex-1 py-2.5 rounded-lg border cursor-pointer font-semibold" style={{ fontSize: 12, background: "transparent", borderColor: theme.border, color: theme.textMuted }}>
+                Generate New Link
               </button>
             </div>
           </div>
@@ -128,10 +94,9 @@ export default function ShareInvite({ d, save, store }) {
             </div>
             <div className="text-lg font-bold mb-2" style={{ color: theme.text }}>Share this project</div>
             <div className="max-w-sm mx-auto mb-6" style={{ fontSize: 13, color: theme.textMuted, lineHeight: 1.6 }}>
-              Generate a link that anyone can use to view or edit your project. Changes can be synced back.
+              Generate a link containing your project data. Anyone who opens it gets their own copy — no account needed.
             </div>
 
-            {/* Permission choice */}
             <div className="flex gap-3 justify-center mb-6">
               <button onClick={() => setCanEdit(true)} className="flex items-center gap-2 px-4 py-3 rounded-xl cursor-pointer" style={{ background: canEdit ? theme.accentBg : theme.bg, border: `2px solid ${canEdit ? theme.accent : theme.border}`, color: canEdit ? theme.accent : theme.textMuted }}>
                 <Users size={16} /> <div className="text-left"><div className="font-bold" style={{ fontSize: 12 }}>Can Edit</div><div style={{ fontSize: 10 }}>Full access to modify</div></div>
@@ -149,12 +114,11 @@ export default function ShareInvite({ d, save, store }) {
         )}
       </div>
 
-      {/* How it works */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {[
-          { n: "1", title: "Generate Link", desc: "Create a unique URL for your project" },
-          { n: "2", title: "Share with Team", desc: "Send the link to anyone you want to collaborate with" },
-          { n: "3", title: "Sync Changes", desc: "Hit sync to push your latest updates to the shared link" },
+          { n: "1", title: "Generate Link", desc: "Your project is encoded into a shareable URL" },
+          { n: "2", title: "Send to Anyone", desc: "Share via email, Slack, text — no account needed" },
+          { n: "3", title: "They Get a Copy", desc: "Recipients get their own local copy to work with" },
         ].map((s) => (
           <div key={s.n} className="p-3 rounded-xl" style={{ background: theme.bgCard, border: `1px solid ${theme.border}` }}>
             <div className="w-6 h-6 rounded-full flex items-center justify-center font-extrabold mb-2" style={{ fontSize: 11, background: theme.accentBg, color: theme.accent }}>{s.n}</div>

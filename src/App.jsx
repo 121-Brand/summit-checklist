@@ -69,17 +69,30 @@ export default function App() {
   // ── Load shared project from URL ──
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const shareId = params.get("share");
-    if (shareId) {
-      fetch("/api/share?id=" + shareId)
+    const encoded = params.get("project");
+    if (encoded) {
+      fetch("/api/share", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "decode", encoded })
+      })
         .then(r => r.json())
         .then(json => {
           if (json.data) {
             const id = uid();
-            const projects = [{ id, name: json.data.context?.goal || "Shared Project" }];
+            const name = json.data.context?.goal?.slice(0, 40) || "Shared Project";
+            const projects = store.projects ? [...store.projects, { id, name }] : [{ id, name }];
             store.setProjects(projects);
             store.setActiveId(id);
-            store.saveData(json.data, id);
+            const projectData = {
+              sections: json.data.sections || [],
+              checks: json.data.checks || {},
+              statuses: json.data.statuses || {},
+              notes: json.data.notes || {},
+              context: json.data.context || {},
+              log: [], documents: [],
+            };
+            store.saveData(projectData, id);
             setOnboarded(true);
             try { localStorage.setItem("summit-onboarded", "true"); } catch {}
             window.history.replaceState({}, "", window.location.pathname);

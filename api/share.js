@@ -1,56 +1,45 @@
-import { put, list, del } from '@vercel/blob';
-
 export default async function handler(req, res) {
+  // This endpoint just validates and compresses share data
+  // Actual sharing uses URL-encoded data - no storage needed
+  
   if (req.method === "POST") {
-    // Create or update a shared project
-    const { action, shareId, data, permissions } = req.body;
-
-    if (action === "create") {
-      const id = "share_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-      const payload = JSON.stringify({
-        id, data, permissions: permissions || { canEdit: true },
-        createdAt: Date.now(), updatedAt: Date.now(),
-      });
+    const { action, data, permissions } = req.body;
+    
+    if (action === "encode") {
       try {
-        const blob = await put(`shares/${id}.json`, payload, { access: "public", contentType: "application/json" });
-        return res.status(200).json({ shareId: id, url: blob.url });
+        // Strip heavy fields to keep URL reasonable
+        const slim = {
+          sections: (data.sections || []).map(s => ({
+            id: s.id, title: s.title, due: s.due,
+            items: s.items.map(i => ({ id: i.id, text: i.text, owner: i.owner, p: i.p, blockedBy: i.blockedBy }))
+          })),
+          checks: data.checks || {},
+          statuses: data.statuses || {},
+          notes: data.notes || {},
+          context: data.context || {},
+          permissions: permissions || { canEdit: true },
+        };
+        const json = JSON.stringify(slim);
+        const encoded = Buffer.from(json).toString("base64url");
+        return res.status(200).json({ encoded, size: encoded.length });
       } catch (e) {
-        return res.status(500).json({ error: "Failed to create share: " + e.message });
+        return res.status(500).json({ error: "Failed to encode: " + e.message });
       }
     }
-
-    if (action === "update" && shareId) {
+    
+    if (action === "decode") {
       try {
-        // Delete old blob first
-        const blobs = await list({ prefix: `shares/${shareId}` });
-        for (const b of blobs.blobs) { await del(b.url); }
-        const payload = JSON.stringify({
-          id: shareId, data, permissions: permissions || { canEdit: true },
-          createdAt: Date.now(), updatedAt: Date.now(),
-        });
-        const blob = await put(`shares/${shareId}.json`, payload, { access: "public", contentType: "application/json" });
-        return res.status(200).json({ shareId, url: blob.url });
+        const { encoded } = req.body;
+        const json = Buffer.from(encoded, "base64url").toString("utf-8");
+        const data = JSON.parse(json);
+        return res.status(200).json({ data });
       } catch (e) {
-        return res.status(500).json({ error: "Failed to update share: " + e.message });
+        return res.status(500).json({ error: "Failed to decode: " + e.message });
       }
     }
-
+    
     return res.status(400).json({ error: "Invalid action" });
   }
-
-  if (req.method === "GET") {
-    const { id } = req.query;
-    if (!id) return res.status(400).json({ error: "Missing share ID" });
-    try {
-      const blobs = await list({ prefix: `shares/${id}` });
-      if (blobs.blobs.length === 0) return res.status(404).json({ error: "Share not found" });
-      const response = await fetch(blobs.blobs[0].url);
-      const data = await response.json();
-      return res.status(200).json(data);
-    } catch (e) {
-      return res.status(500).json({ error: "Failed to load share: " + e.message });
-    }
-  }
-
+  
   return res.status(405).json({ error: "Method not allowed" });
 }
