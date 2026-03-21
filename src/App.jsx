@@ -52,11 +52,10 @@ export default function App() {
   const [showNewProj, setShowNewProj] = useState(false);
   const [newProjName, setNewProjName] = useState("");
   const [showMgr, setShowMgr] = useState(false);
-  const [importRows, setImportRows] = useState(null);
+  const [importTasks, setImportTasks] = useState(null);
   const [importSec, setImportSec] = useState("");
   const [importOwner, setImportOwner] = useState("Chase");
   const [aiParsing, setAiParsing] = useState(false);
-  const [aiTasks, setAiTasks] = useState(null);
   const [importMode, setImportMode] = useState("manual"); // "manual" or "ai"
   const [importError, setImportError] = useState(null);
   const [newSecName, setNewSecName] = useState("");
@@ -174,27 +173,36 @@ export default function App() {
     const f = e.target.files?.[0];
     if (!f) return;
     setImportError(null);
-    setAiTasks(null);
     setImportMode("manual");
     try {
       const result = await extractText(f);
-      setImportRows(result.lines);
+      // Create editable task objects from each line
+      const tasks = result.lines.map((line, i) => ({
+        _id: i, text: line, owner: "Chase", p: "HIGH", section: "", include: true
+      }));
+      setImportTasks(tasks);
       setShowImport(true);
     } catch(e) {
       setImportError("Could not read file: " + e.message);
+      setImportTasks([]);
       setShowImport(true);
     }
     if (fileRef.current) fileRef.current.value = "";
   };
 
   const handleAiParse = async () => {
-    if (!importRows || importRows.length === 0) return;
+    if (!importTasks || importTasks.length === 0) return;
     setAiParsing(true);
     setImportError(null);
     try {
-      const result = await aiParseTasks(importRows.join("\n"), "uploaded file");
+      const rawText = importTasks.map((t) => t.text).join("\n");
+      const result = await aiParseTasks(rawText, "uploaded file");
       if (result.tasks && result.tasks.length > 0) {
-        setAiTasks(result.tasks);
+        const tasks = result.tasks.map((t, i) => ({
+          _id: i, text: t.text, owner: t.owner || "Chase", p: t.priority || "HIGH",
+          section: t.section || "Imported", include: true
+        }));
+        setImportTasks(tasks);
         setImportMode("ai");
       } else {
         setImportError("AI could not extract any tasks from this document.");
@@ -205,16 +213,30 @@ export default function App() {
     setAiParsing(false);
   };
 
+  const updateImportTask = (id, field, value) => {
+    setImportTasks((prev) => prev.map((t) => t._id === id ? { ...t, [field]: value } : t));
+  };
+
+  const removeImportTask = (id) => {
+    setImportTasks((prev) => prev.filter((t) => t._id !== id));
+  };
+
+  const setAllImportOwner = (owner) => {
+    setImportTasks((prev) => prev.map((t) => ({ ...t, owner })));
+  };
+
   const doImport = () => {
-    if (importMode === "ai" && aiTasks) {
-      // Group AI tasks by section
+    if (!importTasks || importTasks.length === 0) return;
+    const tasksToImport = importTasks.filter((t) => t.include && t.text.trim());
+
+    if (importMode === "ai") {
+      // Group by section name
       const sectionMap = {};
-      aiTasks.forEach((t) => {
+      tasksToImport.forEach((t) => {
         const secName = t.section || "Imported";
         if (!sectionMap[secName]) sectionMap[secName] = [];
-        sectionMap[secName].push({ id: uid(), text: t.text, owner: t.owner || "Chase", p: t.priority || "HIGH" });
+        sectionMap[secName].push({ id: uid(), text: t.text, owner: t.owner, p: t.p });
       });
-      // Add tasks to existing sections or create new ones
       let newSections = [...d.sections];
       Object.entries(sectionMap).forEach(([secName, items]) => {
         const existing = newSections.find((s) => s.title.toLowerCase() === secName.toLowerCase());
@@ -226,11 +248,11 @@ export default function App() {
       });
       save({ ...d, sections: newSections });
     } else {
-      if (!importRows || !importSec) return;
-      const newItems = importRows.map((t) => ({ id: uid(), text: t, owner: importOwner, p: "HIGH" }));
+      if (!importSec) return;
+      const newItems = tasksToImport.map((t) => ({ id: uid(), text: t.text, owner: t.owner, p: t.p }));
       save({ ...d, sections: d.sections.map((s) => s.id === importSec ? { ...s, items: [...s.items, ...newItems] } : s) });
     }
-    setShowImport(false); setImportRows(null); setAiTasks(null); setImportMode("manual");
+    setShowImport(false); setImportTasks(null); setImportMode("manual");
   };
 
   const createProject = () => {
@@ -366,12 +388,12 @@ export default function App() {
 
       {/* Import Modal */}
       {showImport ? (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => { setShowImport(false); setImportRows(null); setAiTasks(null); setImportMode("manual"); setImportError(null); }}>
-          <div onClick={(e) => e.stopPropagation()} className="bg-slate-800 rounded-xl p-4 w-full max-w-lg max-h-[80vh] overflow-auto border border-slate-700">
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => { setShowImport(false); setImportTasks(null); setImportMode("manual"); setImportError(null); }}>
+          <div onClick={(e) => e.stopPropagation()} className="bg-slate-800 rounded-xl p-4 w-full max-w-2xl max-h-[85vh] overflow-auto border border-slate-700">
             <div className="flex items-center gap-2 mb-3">
               <FileText size={16} className="text-cyan-400" />
               <div className="text-sm font-bold">Import Tasks</div>
-              <span className="text-[10px] text-slate-400 ml-auto">{importRows ? importRows.length + " lines detected" : ""}</span>
+              <span className="text-[10px] text-slate-400 ml-auto">{importTasks ? importTasks.filter(t => t.include).length + " tasks" : ""}</span>
             </div>
 
             {importError ? (
@@ -381,64 +403,76 @@ export default function App() {
             {/* Mode toggle */}
             <div className="flex gap-1 mb-3">
               <button onClick={() => setImportMode("manual")} className={`flex-1 px-3 py-2 rounded-md text-xs font-semibold border-none cursor-pointer ${importMode === "manual" ? "bg-slate-700 text-white" : "bg-transparent text-slate-500"}`}>Manual Import</button>
-              <button onClick={() => { if (!aiTasks) handleAiParse(); else setImportMode("ai"); }} className={`flex-1 px-3 py-2 rounded-md text-xs font-semibold border-none cursor-pointer flex items-center justify-center gap-1 ${importMode === "ai" ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500" : "bg-transparent text-slate-500"}`}>
+              <button onClick={() => { if (importMode !== "ai") handleAiParse(); else setImportMode("ai"); }} className={`flex-1 px-3 py-2 rounded-md text-xs font-semibold border-none cursor-pointer flex items-center justify-center gap-1 ${importMode === "ai" ? "bg-cyan-500/20 text-cyan-400" : "bg-transparent text-slate-500"}`}>
                 {aiParsing ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
                 AI Parse
               </button>
             </div>
 
-            {importMode === "manual" ? (
+            {aiParsing ? (
+              <div className="py-8 text-center">
+                <Loader2 size={24} className="animate-spin text-cyan-400 mx-auto mb-2" />
+                <div className="text-xs text-slate-400">AI is analyzing your document and extracting tasks...</div>
+              </div>
+            ) : importTasks && importTasks.length > 0 ? (
               <div>
-                <div className="flex gap-2 mb-3 flex-wrap">
-                  <select value={importSec} onChange={(e) => setImportSec(e.target.value)} className={`flex-1 p-1.5 text-xs ${ist}`}>
-                    <option value="">Select section...</option>
-                    {d.sections.map((s) => <option key={s.id} value={s.id}>{s.title}</option>)}
-                  </select>
-                  <select value={importOwner} onChange={(e) => setImportOwner(e.target.value)} className={`p-1.5 text-xs ${ist}`}>{OWNERS.map((o) => <option key={o}>{o}</option>)}</select>
+                {/* Section selector for manual mode */}
+                {importMode === "manual" ? (
+                  <div className="flex gap-2 mb-3 flex-wrap items-center">
+                    <select value={importSec} onChange={(e) => setImportSec(e.target.value)} className={`flex-1 p-1.5 text-xs ${ist}`}>
+                      <option value="">Select section...</option>
+                      {d.sections.map((s) => <option key={s.id} value={s.id}>{s.title}</option>)}
+                    </select>
+                    <span className="text-[9px] text-slate-500">Assign all:</span>
+                    {OWNERS.map((o) => (
+                      <button key={o} onClick={() => setAllImportOwner(o)} className="px-1.5 py-0.5 rounded text-[9px] font-bold border-none cursor-pointer" style={{ background: OWNER_COLORS[o], color: "#000" }}>{o}</button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-[10px] text-slate-400 mb-2">
+                    AI organized {importTasks.filter(t => t.include).length} tasks into {[...new Set(importTasks.map(t => t.section))].length} sections. Edit owners/priorities below:
+                  </div>
+                )}
+
+                {/* Task list with per-task editing */}
+                <div className="max-h-96 overflow-y-auto mb-3 border border-slate-700 rounded">
+                  {importTasks.map((t) => (
+                    <div key={t._id} className={`px-2 py-1.5 border-b border-slate-800 ${t.include ? "" : "opacity-30"}`}>
+                      <div className="flex items-start gap-2">
+                        <input type="checkbox" checked={t.include} onChange={() => updateImportTask(t._id, "include", !t.include)} className="mt-1 cursor-pointer" />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-[10px] text-slate-200 leading-relaxed">{t.text}</div>
+                          <div className="flex gap-1 mt-1 items-center flex-wrap">
+                            <select value={t.owner} onChange={(e) => updateImportTask(t._id, "owner", e.target.value)} className="text-[9px] px-1 py-0.5 rounded bg-slate-900 border border-slate-700 text-slate-300 outline-none cursor-pointer">
+                              {OWNERS.map((o) => <option key={o}>{o}</option>)}
+                            </select>
+                            <select value={t.p} onChange={(e) => updateImportTask(t._id, "p", e.target.value)} className="text-[9px] px-1 py-0.5 rounded bg-slate-900 border border-slate-700 text-slate-300 outline-none cursor-pointer">
+                              <option>CRITICAL</option><option>HIGH</option><option>MEDIUM</option>
+                            </select>
+                            {importMode === "ai" && t.section ? (
+                              <span className="text-[8px] px-1 py-0.5 rounded bg-slate-700 text-slate-400">{t.section}</span>
+                            ) : null}
+                            <button onClick={() => removeImportTask(t._id)} className="ml-auto text-red-500 bg-transparent border-none cursor-pointer"><Trash2 size={10} /></button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <div className="max-h-40 overflow-y-auto mb-3 border border-slate-700 rounded">
-                  {(importRows || []).map((r, i) => <div key={i} className="px-1.5 py-0.5 border-b border-slate-800 text-[9px] text-slate-200">{r}</div>)}
-                </div>
+
                 <div className="flex gap-2 justify-end">
-                  <button onClick={() => { setShowImport(false); setImportRows(null); setAiTasks(null); setImportError(null); }} className="px-3 py-1.5 rounded-md bg-slate-700 text-slate-400 border-none text-xs cursor-pointer">Cancel</button>
-                  <button onClick={doImport} className={`px-3 py-1.5 rounded-md border-none text-xs font-bold cursor-pointer ${importSec ? "bg-cyan-500 text-white" : "bg-slate-700 text-slate-500"}`}>Import {importRows ? importRows.length : 0} lines</button>
+                  <button onClick={() => { setShowImport(false); setImportTasks(null); setImportError(null); }} className="px-3 py-1.5 rounded-md bg-slate-700 text-slate-400 border-none text-xs cursor-pointer">Cancel</button>
+                  <button onClick={doImport} className={`px-3 py-1.5 rounded-md border-none text-xs font-bold cursor-pointer ${(importMode === "ai" || importSec) ? "bg-cyan-500 text-white" : "bg-slate-700 text-slate-500"}`}>
+                    Import {importTasks.filter(t => t.include).length} Tasks
+                  </button>
                 </div>
               </div>
             ) : (
-              <div>
-                {aiParsing ? (
-                  <div className="py-8 text-center">
-                    <Loader2 size={24} className="animate-spin text-cyan-400 mx-auto mb-2" />
-                    <div className="text-xs text-slate-400">AI is analyzing your document and extracting tasks...</div>
-                  </div>
-                ) : aiTasks ? (
-                  <div>
-                    <div className="text-xs text-slate-400 mb-2">AI found {aiTasks.length} tasks across {[...new Set(aiTasks.map(t => t.section))].length} sections:</div>
-                    <div className="max-h-60 overflow-y-auto mb-3 border border-slate-700 rounded">
-                      {aiTasks.map((t, i) => (
-                        <div key={i} className="px-2 py-1.5 border-b border-slate-800">
-                          <div className="text-[10px] text-slate-200">{t.text}</div>
-                          <div className="flex gap-1 mt-0.5">
-                            <span className="text-[8px] px-1 rounded font-bold text-white" style={{ background: OWNER_COLORS[t.owner] || "#6b7280" }}>{t.owner}</span>
-                            <span className="text-[8px] px-1 rounded font-bold text-white" style={{ background: PRIORITY_COLORS[t.priority] || "#f59e0b" }}>{t.priority}</span>
-                            <span className="text-[8px] text-slate-500">{t.section}</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="flex gap-2 justify-end">
-                      <button onClick={() => { setShowImport(false); setImportRows(null); setAiTasks(null); setImportError(null); }} className="px-3 py-1.5 rounded-md bg-slate-700 text-slate-400 border-none text-xs cursor-pointer">Cancel</button>
-                      <button onClick={doImport} className="px-3 py-1.5 rounded-md bg-cyan-500 text-white border-none text-xs font-bold cursor-pointer">Import {aiTasks.length} AI Tasks</button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="py-6 text-center text-slate-500 text-xs">Click "AI Parse" to analyze the document</div>
-                )}
-              </div>
+              <div className="py-6 text-center text-slate-500 text-xs">No tasks found in document</div>
             )}
 
             <div className="mt-3 pt-2 border-t border-slate-700 text-[9px] text-slate-500">
-              Supports: .csv, .txt, .docx (Word), .xlsx (Excel) — AI Parse uses Claude to auto-categorize tasks
+              Supports: .csv, .txt, .docx (Word), .xlsx (Excel) — AI Parse uses Claude to auto-categorize tasks with owners and sections
             </div>
           </div>
         </div>
