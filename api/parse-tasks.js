@@ -19,12 +19,14 @@ export default async function handler(req, res) {
   const existingSections = (ctx.sections || []).join(", ");
   const deadline = ctx.deadline || "none";
   const goal = ctx.goal || "complete project checklist";
+  const prioStrategy = ctx.priorityStrategy || "";
+  const description = ctx.description || "";
 
-  // Efficient system prompt - compact, no wasted tokens
-  const systemPrompt = "You extract tasks from documents into structured JSON. Rules: Each task must be actionable with one clear deliverable. Skip headers, intros, duplicates, vague items. Assign owner by role match. Assign priority by deadline proximity and impact: CRITICAL=blocks launch, HIGH=important, MEDIUM=nice-to-have. Group into logical sections, reuse existing sections when they fit. Return ONLY valid JSON, no other text.";
+  // Efficient system prompt
+  const systemPrompt = "You extract tasks from documents into structured JSON. Rules: Each task must be actionable with one clear deliverable. Skip headers, intros, duplicates, vague items. Assign owner by matching task type to team role. Assign priority by deadline proximity and impact: CRITICAL=blocks launch, HIGH=important, MEDIUM=nice-to-have. Group into logical sections, reuse existing sections when they fit. Keep task text concise (under 15 words). Return ONLY valid JSON, no markdown, no explanation.";
 
-  // Compact user prompt with project context
-  const userPrompt = "PROJECT: " + goal + "\nTEAM: " + (teamList || "You(owner), Spencer(builder), Chase(QA)") + "\nDEADLINE: " + deadline + "\nEXISTING SECTIONS: " + (existingSections || "none yet") + "\nOWNERS: " + ((ctx.team || []).map(m => m.name).join(", ") || "You, Spencer, Chase") + "\n\nDOCUMENT:\n" + text.slice(0, 15000) + '\n\nReturn JSON: {"tasks":[{"text":"...","owner":"...","priority":"CRITICAL|HIGH|MEDIUM","section":"..."}]}';
+  // Compact user prompt with full project context
+  const userPrompt = "PROJECT: " + goal + (description ? "\nDESCRIPTION: " + description.slice(0, 500) : "") + "\nTEAM: " + (teamList || "You(owner), Spencer(builder), Chase(QA)") + "\nDEADLINE: " + deadline + (prioStrategy ? "\nPRIORITY RULES: " + prioStrategy.slice(0, 300) : "") + "\nEXISTING SECTIONS: " + (existingSections || "none yet") + "\nOWNERS: " + ((ctx.team || []).map(m => m.name).join(", ") || "You, Spencer, Chase") + "\n\nDOCUMENT:\n" + text.slice(0, 15000) + '\n\nReturn JSON: {"tasks":[{"text":"...","owner":"...","priority":"CRITICAL|HIGH|MEDIUM","section":"..."}]}';
 
   try {
     const response = await fetch("https://api.anthropic.com/v1/messages", {
@@ -36,7 +38,7 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         model: "claude-haiku-4-5-20251001",
-        max_tokens: 2048,
+        max_tokens: 8192,
         system: systemPrompt,
         messages: [{ role: "user", content: userPrompt }]
       })

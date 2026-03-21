@@ -202,6 +202,8 @@ export default function App() {
       // Build project context from stored data
       const projectContext = {
         goal: d.context?.goal || "complete project checklist",
+        description: d.context?.description || "",
+        priorityStrategy: d.context?.priorityStrategy || "",
         team: d.context?.team || OWNERS.map(o => ({ name: o, role: o === "You" ? "Owner/Strategy" : o === "Spencer" ? "Builder/Customizer" : "QA/Onboarding" })),
         deadline: d.context?.deadline || "2026-03-28",
         sections: d.sections.map(s => s.title),
