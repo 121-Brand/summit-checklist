@@ -321,7 +321,7 @@ export default function App() {
           onNewProject={() => setShowNewProj(true)}
         />
 
-        <div className="max-w-4xl mx-auto p-4 sm:p-5">
+        <div key={view} className="max-w-4xl mx-auto p-4 sm:p-5 view-enter">
           {view === "dash" && <Dashboard d={d} allItems={allItems} total={total} doneCount={doneCount} pct={pct} secStats={secStats} goToSection={goToSection} onSetup={() => setView("settings")} onUpload={triggerUpload} />}
           {view === "list" && <TaskList d={d} save={save} secStats={secStats} sectionRefs={sectionRefs} opened={opened} setOpened={setOpened} selected={selected} setSelected={setSelected} toggleCheck={toggleCheck} setItemStatus={setItemStatus} getStatus={getStatus} editHandlers={editHandlers} />}
           {view === "focus" && <FocusView d={d} allItems={allItems} focusPerson={focusPerson} setFocusPerson={setFocusPerson} toggleCheck={toggleCheck} setItemStatus={setItemStatus} getStatus={getStatus} selected={selected} setSelected={setSelected} editHandlers={editHandlers} />}
@@ -337,7 +337,7 @@ export default function App() {
       {/* Edit Task */}
       {editId && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => { setEditId(null); setSubtasks(null); }}>
-          <div onClick={(e) => e.stopPropagation()} className="rounded-2xl p-5 w-full max-w-md" style={{ background: theme.bgCard, border: `1px solid ${theme.border}` }}>
+          <div onClick={(e) => e.stopPropagation()} className="rounded-2xl p-5 w-full max-w-md modal-enter" style={{ background: theme.bgCard, border: `1px solid ${theme.border}` }}>
             <div className="font-bold mb-3" style={{ fontSize: 14 }}>Edit Task</div>
             <textarea value={editText} onChange={(e) => setEditText(e.target.value)} rows={2} className="w-full p-2 text-xs mb-3 rounded-lg outline-none resize-y box-border" style={inputStyle} />
             <div className="flex gap-2 mb-3">
@@ -388,7 +388,7 @@ export default function App() {
       {/* New Project */}
       {showNewProj && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setShowNewProj(false)}>
-          <div onClick={(e) => e.stopPropagation()} className="rounded-2xl p-5 w-full max-w-sm" style={{ background: theme.bgCard, border: `1px solid ${theme.border}` }}>
+          <div onClick={(e) => e.stopPropagation()} className="rounded-2xl p-5 w-full max-w-sm modal-enter" style={{ background: theme.bgCard, border: `1px solid ${theme.border}` }}>
             <div className="font-bold mb-3" style={{ fontSize: 14 }}>New Project</div>
             <input value={newProjName} onChange={(e) => setNewProjName(e.target.value)} placeholder="Project name..." className="w-full p-2.5 text-xs rounded-lg outline-none mb-4 box-border" style={inputStyle} autoFocus onKeyDown={(e) => e.key === "Enter" && createProject()} />
             <div className="flex gap-2 justify-end">
@@ -402,7 +402,7 @@ export default function App() {
       {/* Import */}
       {showImport && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => { setShowImport(false); setImportTasks(null); setImportMode("manual"); setImportError(null); setImportFileMeta(null); }}>
-          <div onClick={(e) => e.stopPropagation()} className="rounded-2xl p-5 w-full max-w-2xl max-h-[85vh] overflow-auto" style={{ background: theme.bgCard, border: `1px solid ${theme.border}` }}>
+          <div onClick={(e) => e.stopPropagation()} className="rounded-2xl p-5 w-full max-w-2xl max-h-[85vh] overflow-auto modal-enter" style={{ background: theme.bgCard, border: `1px solid ${theme.border}` }}>
             <div className="flex items-center gap-2 mb-4">
               <FileText size={18} style={{ color: theme.accent }} />
               <div className="font-bold" style={{ fontSize: 14 }}>Import Tasks</div>

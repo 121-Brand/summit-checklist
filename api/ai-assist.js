@@ -39,6 +39,14 @@ export default async function handler(req, res) {
     userPrompt = `Find duplicate/overlapping tasks:\n${taskList}\n\nReturn JSON: {"groups":[{"indices":[0,5],"reason":"brief reason they overlap","suggestion":"merge|delete_one"}]}. If no duplicates found, return {"groups":[]}`;
   }
 
+  // ── COMPLETION SCANNER ──
+  else if (action === "completion_scan") {
+    const { docText, tasks } = data;
+    systemPrompt = "You compare a document showing completed work against a list of open tasks. For each task that appears to be completed based on the document evidence, include it in the matches. Be conservative - only match tasks where the document clearly shows the work is done. Return ONLY valid JSON.";
+    const taskList = tasks.slice(0, 80).map((t) => `${t.id}|${t.text}|${t.section}`).join("\n");
+    userPrompt = `OPEN TASKS:\n${taskList}\n\nDOCUMENT CONTENT (proof of completed work):\n${docText.slice(0, 12000)}\n\nWhich tasks are completed based on this document?\nReturn JSON: {"matches":[{"taskId":"...", "taskText":"the task text", "reason":"brief evidence from doc"}], "summary":"one sentence summary of what the document shows was completed"}`;
+  }
+
   else {
     return res.status(400).json({ error: "Unknown action: " + action });
   }

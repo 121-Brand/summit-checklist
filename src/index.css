@@ -33,3 +33,67 @@ body {
   background: var(--accent, #06b6d4);
   color: #fff;
 }
+
+/* View transition animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeInScale {
+  from { opacity: 0; transform: scale(0.97); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-12px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.view-enter {
+  animation: fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.modal-enter {
+  animation: fadeInScale 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.sidebar-enter {
+  animation: slideInLeft 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Tooltip base */
+[data-tip] {
+  position: relative;
+}
+[data-tip]:hover::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+  background: var(--bg-card, #1e293b);
+  color: var(--text-muted, #94a3b8);
+  border: 1px solid var(--border, #334155);
+  z-index: 999;
+  pointer-events: none;
+  animation: fadeIn 0.15s ease;
+}
+
+/* Smooth interactions */
+button {
+  transition: opacity 0.15s, transform 0.1s;
+}
+button:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+/* Card hover glow */
+.card-hover:hover {
+  box-shadow: 0 0 0 1px var(--accent, #06b6d4)20;
+}

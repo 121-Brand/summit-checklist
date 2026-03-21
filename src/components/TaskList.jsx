@@ -1,6 +1,6 @@
 import { useState } from "react";
 import {
-  Search, ChevronDown, ChevronRight, Plus, Trash2, Check
+  Search, ChevronDown, ChevronRight, Plus, Trash2, Check, Sparkles, Loader2, X, Merge
 } from "lucide-react";
 import ItemRow from "./ItemRow";
 import { ProgressBar, Badge } from "./Shared";
@@ -30,6 +30,31 @@ export default function TaskList({
   const [newTask, setNewTask] = useState({ text: "", owner: "Chase", p: "HIGH" });
   const [noteId, setNoteId] = useState(null);
   const [noteVal, setNoteVal] = useState("");
+  const [dupeLoading, setDupeLoading] = useState(false);
+  const [dupeGroups, setDupeGroups] = useState(null);
+
+  const allItems = [];
+  d.sections.forEach((s) => s.items.forEach((it) => allItems.push({ ...it, sectionId: s.id, sectionTitle: s.title })));
+
+  const findDuplicates = async () => {
+    setDupeLoading(true); setDupeGroups(null);
+    try {
+      const res = await fetch("/api/ai-assist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "duplicates", data: { tasks: allItems.slice(0, 100) } })
+      });
+      const json = await res.json();
+      if (json.result?.groups) setDupeGroups(json.result.groups);
+    } catch (e) { console.error(e); }
+    setDupeLoading(false);
+  };
+
+  const deleteDupeTask = (taskId) => {
+    save({ ...d, sections: d.sections.map((s) => ({ ...s, items: s.items.filter((i) => i.id !== taskId) })) });
+    // Remove from groups display
+    setDupeGroups(prev => prev?.map(g => ({ ...g, indices: g.indices.filter(idx => allItems[idx]?.id !== taskId) })).filter(g => g.indices.length > 1));
+  };
 
   const ist = `rounded border bg-transparent outline-none`;
 
@@ -111,7 +136,45 @@ export default function TaskList({
           style={{ background: "transparent", borderColor: theme.border, color: theme.textDim }}
           title="Collapse all"
         >−</button>
+        <button
+          onClick={findDuplicates}
+          disabled={dupeLoading}
+          className="flex items-center gap-1 px-2.5 py-2 rounded-lg border cursor-pointer text-xs font-semibold"
+          style={{ background: theme.accentBg, borderColor: theme.accent + "30", color: theme.accent, opacity: dupeLoading ? 0.5 : 1 }}
+          title="Find duplicate tasks"
+        >
+          {dupeLoading ? <Loader2 size={11} className="animate-spin" /> : <Sparkles size={11} />}
+          Duplicates
+        </button>
       </div>
+
+      {/* Duplicate Results */}
+      {dupeGroups && (
+        <div className="mb-3 p-3 rounded-xl" style={{ background: theme.accentBg, border: "1px solid " + theme.accent + "30" }}>
+          <div className="flex items-center justify-between mb-2">
+            <span className="font-bold" style={{ fontSize: 12, color: theme.accent }}>
+              {dupeGroups.length > 0 ? `Found ${dupeGroups.length} duplicate group${dupeGroups.length !== 1 ? "s" : ""}` : "No duplicates found!"}
+            </span>
+            <button onClick={() => setDupeGroups(null)} className="bg-transparent border-none cursor-pointer" style={{ color: theme.textDim }}><X size={14} /></button>
+          </div>
+          {dupeGroups.map((group, gi) => (
+            <div key={gi} className="mb-2 p-2.5 rounded-lg" style={{ background: theme.bgCard, border: "1px solid " + theme.border }}>
+              <div className="mb-1.5" style={{ fontSize: 10, color: theme.textMuted }}>{group.reason} — <span style={{ color: group.suggestion === "merge" ? theme.accent : "#ef4444" }}>{group.suggestion}</span></div>
+              {group.indices.map((idx) => {
+                const task = allItems[idx];
+                if (!task) return null;
+                return (
+                  <div key={idx} className="flex items-center gap-2 py-1" style={{ fontSize: 11 }}>
+                    <span className="flex-1" style={{ color: theme.text }}>{task.text}</span>
+                    <span style={{ fontSize: 9, color: theme.textDim }}>{task.sectionTitle}</span>
+                    <button onClick={() => deleteDupeTask(task.id)} className="px-2 py-0.5 rounded text-[9px] font-bold border-none cursor-pointer" style={{ background: "#ef444420", color: "#ef4444" }}>Remove</button>
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Bulk actions */}
       {selected.size > 0 && (

@@ -63,6 +63,7 @@ export default function Sidebar({ view, setView, collapsed, setCollapsed, pct })
                 fontWeight: active ? 700 : 500,
               }}
               title={collapsed ? item.label : undefined}
+              data-tip={collapsed ? item.label : undefined}
             >
               <Icon size={18} strokeWidth={active ? 2.2 : 1.8} />
               {!collapsed && <span>{item.label}</span>}
