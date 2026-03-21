@@ -2,10 +2,11 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import {
   Check, ChevronDown, ChevronRight, Plus, Search, Clipboard,
   Trash2, Edit3, Upload, FolderPlus, Settings, MessageSquare,
-  Target, LayoutGrid, TrendingDown, BarChart3
+  Target, LayoutGrid, TrendingDown, BarChart3, Loader2, FileText, Sparkles
 } from "lucide-react";
 import { DEFAULT_SECTIONS, OWNERS, OWNER_COLORS, PRIORITY_COLORS, STATUS_COLORS } from "./data";
 import { useStore } from "./useStore";
+import { extractText, aiParseTasks } from "./docParser";
 
 // ── Helpers ──────────────────────────────────────────
 const uid = () => "t" + Date.now() + Math.random().toString(36).slice(2, 6);
@@ -54,6 +55,10 @@ export default function App() {
   const [importRows, setImportRows] = useState(null);
   const [importSec, setImportSec] = useState("");
   const [importOwner, setImportOwner] = useState("Chase");
+  const [aiParsing, setAiParsing] = useState(false);
+  const [aiTasks, setAiTasks] = useState(null);
+  const [importMode, setImportMode] = useState("manual"); // "manual" or "ai"
+  const [importError, setImportError] = useState(null);
   const [newSecName, setNewSecName] = useState("");
   const [newSecDue, setNewSecDue] = useState("2026-03-28");
   const [scrollTarget, setScrollTarget] = useState(null);
@@ -165,22 +170,67 @@ export default function App() {
     setSelected(n);
   };
 
-  const handleFile = (e) => {
+  const handleFile = async (e) => {
     const f = e.target.files?.[0];
     if (!f) return;
-    f.text().then((txt) => {
-      const rows = txt.split("\n").map((l) => l.trim()).filter((l) => l.length > 2 && !/^(task|item|#|owner|description|priority)/i.test(l));
-      setImportRows(rows);
+    setImportError(null);
+    setAiTasks(null);
+    setImportMode("manual");
+    try {
+      const result = await extractText(f);
+      setImportRows(result.lines);
       setShowImport(true);
-    });
+    } catch(e) {
+      setImportError("Could not read file: " + e.message);
+      setShowImport(true);
+    }
     if (fileRef.current) fileRef.current.value = "";
   };
 
+  const handleAiParse = async () => {
+    if (!importRows || importRows.length === 0) return;
+    setAiParsing(true);
+    setImportError(null);
+    try {
+      const result = await aiParseTasks(importRows.join("\n"), "uploaded file");
+      if (result.tasks && result.tasks.length > 0) {
+        setAiTasks(result.tasks);
+        setImportMode("ai");
+      } else {
+        setImportError("AI could not extract any tasks from this document.");
+      }
+    } catch(e) {
+      setImportError("AI parsing failed: " + e.message);
+    }
+    setAiParsing(false);
+  };
+
   const doImport = () => {
-    if (!importRows || !importSec) return;
-    const newItems = importRows.map((t) => ({ id: uid(), text: t, owner: importOwner, p: "HIGH" }));
-    save({ ...d, sections: d.sections.map((s) => s.id === importSec ? { ...s, items: [...s.items, ...newItems] } : s) });
-    setShowImport(false); setImportRows(null);
+    if (importMode === "ai" && aiTasks) {
+      // Group AI tasks by section
+      const sectionMap = {};
+      aiTasks.forEach((t) => {
+        const secName = t.section || "Imported";
+        if (!sectionMap[secName]) sectionMap[secName] = [];
+        sectionMap[secName].push({ id: uid(), text: t.text, owner: t.owner || "Chase", p: t.priority || "HIGH" });
+      });
+      // Add tasks to existing sections or create new ones
+      let newSections = [...d.sections];
+      Object.entries(sectionMap).forEach(([secName, items]) => {
+        const existing = newSections.find((s) => s.title.toLowerCase() === secName.toLowerCase());
+        if (existing) {
+          newSections = newSections.map((s) => s.id === existing.id ? { ...s, items: [...s.items, ...items] } : s);
+        } else {
+          newSections.push({ id: uid(), title: secName, due: "2026-03-28", items });
+        }
+      });
+      save({ ...d, sections: newSections });
+    } else {
+      if (!importRows || !importSec) return;
+      const newItems = importRows.map((t) => ({ id: uid(), text: t, owner: importOwner, p: "HIGH" }));
+      save({ ...d, sections: d.sections.map((s) => s.id === importSec ? { ...s, items: [...s.items, ...newItems] } : s) });
+    }
+    setShowImport(false); setImportRows(null); setAiTasks(null); setImportMode("manual");
   };
 
   const createProject = () => {
@@ -294,7 +344,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200" style={{ fontFamily: "system-ui, -apple-system, sans-serif" }}>
-      <input ref={fileRef} type="file" accept=".csv,.tsv,.txt" onChange={handleFile} style={{ display: "none" }} />
+      <input ref={fileRef} type="file" accept=".csv,.tsv,.txt,.docx,.xlsx,.xls" onChange={handleFile} style={{ display: "none" }} />
 
       {/* Edit Modal */}
       {editId ? (
@@ -315,23 +365,80 @@ export default function App() {
       ) : null}
 
       {/* Import Modal */}
-      {showImport && importRows ? (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => { setShowImport(false); setImportRows(null); }}>
-          <div onClick={(e) => e.stopPropagation()} className="bg-slate-800 rounded-xl p-4 w-full max-w-md max-h-[75vh] overflow-auto border border-slate-700">
-            <div className="text-sm font-bold mb-2">Import {importRows.length} Tasks</div>
-            <div className="flex gap-2 mb-3 flex-wrap">
-              <select value={importSec} onChange={(e) => setImportSec(e.target.value)} className={`flex-1 p-1.5 text-xs ${ist}`}>
-                <option value="">Select section...</option>
-                {d.sections.map((s) => <option key={s.id} value={s.id}>{s.title}</option>)}
-              </select>
-              <select value={importOwner} onChange={(e) => setImportOwner(e.target.value)} className={`p-1.5 text-xs ${ist}`}>{OWNERS.map((o) => <option key={o}>{o}</option>)}</select>
+      {showImport ? (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => { setShowImport(false); setImportRows(null); setAiTasks(null); setImportMode("manual"); setImportError(null); }}>
+          <div onClick={(e) => e.stopPropagation()} className="bg-slate-800 rounded-xl p-4 w-full max-w-lg max-h-[80vh] overflow-auto border border-slate-700">
+            <div className="flex items-center gap-2 mb-3">
+              <FileText size={16} className="text-cyan-400" />
+              <div className="text-sm font-bold">Import Tasks</div>
+              <span className="text-[10px] text-slate-400 ml-auto">{importRows ? importRows.length + " lines detected" : ""}</span>
             </div>
-            <div className="max-h-40 overflow-y-auto mb-3 border border-slate-700 rounded">
-              {importRows.map((r, i) => <div key={i} className="px-1.5 py-0.5 border-b border-slate-800 text-[9px] text-slate-200">{r}</div>)}
+
+            {importError ? (
+              <div className="mb-3 p-2 rounded-md bg-red-500/10 border border-red-500/30 text-red-400 text-xs">{importError}</div>
+            ) : null}
+
+            {/* Mode toggle */}
+            <div className="flex gap-1 mb-3">
+              <button onClick={() => setImportMode("manual")} className={`flex-1 px-3 py-2 rounded-md text-xs font-semibold border-none cursor-pointer ${importMode === "manual" ? "bg-slate-700 text-white" : "bg-transparent text-slate-500"}`}>Manual Import</button>
+              <button onClick={() => { if (!aiTasks) handleAiParse(); else setImportMode("ai"); }} className={`flex-1 px-3 py-2 rounded-md text-xs font-semibold border-none cursor-pointer flex items-center justify-center gap-1 ${importMode === "ai" ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500" : "bg-transparent text-slate-500"}`}>
+                {aiParsing ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                AI Parse
+              </button>
             </div>
-            <div className="flex gap-2 justify-end">
-              <button onClick={() => { setShowImport(false); setImportRows(null); }} className="px-3 py-1.5 rounded-md bg-slate-700 text-slate-400 border-none text-xs cursor-pointer">Cancel</button>
-              <button onClick={doImport} className={`px-3 py-1.5 rounded-md border-none text-xs font-bold cursor-pointer ${importSec ? "bg-cyan-500 text-white" : "bg-slate-700 text-slate-500"}`}>Import</button>
+
+            {importMode === "manual" ? (
+              <div>
+                <div className="flex gap-2 mb-3 flex-wrap">
+                  <select value={importSec} onChange={(e) => setImportSec(e.target.value)} className={`flex-1 p-1.5 text-xs ${ist}`}>
+                    <option value="">Select section...</option>
+                    {d.sections.map((s) => <option key={s.id} value={s.id}>{s.title}</option>)}
+                  </select>
+                  <select value={importOwner} onChange={(e) => setImportOwner(e.target.value)} className={`p-1.5 text-xs ${ist}`}>{OWNERS.map((o) => <option key={o}>{o}</option>)}</select>
+                </div>
+                <div className="max-h-40 overflow-y-auto mb-3 border border-slate-700 rounded">
+                  {(importRows || []).map((r, i) => <div key={i} className="px-1.5 py-0.5 border-b border-slate-800 text-[9px] text-slate-200">{r}</div>)}
+                </div>
+                <div className="flex gap-2 justify-end">
+                  <button onClick={() => { setShowImport(false); setImportRows(null); setAiTasks(null); setImportError(null); }} className="px-3 py-1.5 rounded-md bg-slate-700 text-slate-400 border-none text-xs cursor-pointer">Cancel</button>
+                  <button onClick={doImport} className={`px-3 py-1.5 rounded-md border-none text-xs font-bold cursor-pointer ${importSec ? "bg-cyan-500 text-white" : "bg-slate-700 text-slate-500"}`}>Import {importRows ? importRows.length : 0} lines</button>
+                </div>
+              </div>
+            ) : (
+              <div>
+                {aiParsing ? (
+                  <div className="py-8 text-center">
+                    <Loader2 size={24} className="animate-spin text-cyan-400 mx-auto mb-2" />
+                    <div className="text-xs text-slate-400">AI is analyzing your document and extracting tasks...</div>
+                  </div>
+                ) : aiTasks ? (
+                  <div>
+                    <div className="text-xs text-slate-400 mb-2">AI found {aiTasks.length} tasks across {[...new Set(aiTasks.map(t => t.section))].length} sections:</div>
+                    <div className="max-h-60 overflow-y-auto mb-3 border border-slate-700 rounded">
+                      {aiTasks.map((t, i) => (
+                        <div key={i} className="px-2 py-1.5 border-b border-slate-800">
+                          <div className="text-[10px] text-slate-200">{t.text}</div>
+                          <div className="flex gap-1 mt-0.5">
+                            <span className="text-[8px] px-1 rounded font-bold text-white" style={{ background: OWNER_COLORS[t.owner] || "#6b7280" }}>{t.owner}</span>
+                            <span className="text-[8px] px-1 rounded font-bold text-white" style={{ background: PRIORITY_COLORS[t.priority] || "#f59e0b" }}>{t.priority}</span>
+                            <span className="text-[8px] text-slate-500">{t.section}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex gap-2 justify-end">
+                      <button onClick={() => { setShowImport(false); setImportRows(null); setAiTasks(null); setImportError(null); }} className="px-3 py-1.5 rounded-md bg-slate-700 text-slate-400 border-none text-xs cursor-pointer">Cancel</button>
+                      <button onClick={doImport} className="px-3 py-1.5 rounded-md bg-cyan-500 text-white border-none text-xs font-bold cursor-pointer">Import {aiTasks.length} AI Tasks</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="py-6 text-center text-slate-500 text-xs">Click "AI Parse" to analyze the document</div>
+                )}
+              </div>
+            )}
+
+            <div className="mt-3 pt-2 border-t border-slate-700 text-[9px] text-slate-500">
+              Supports: .csv, .txt, .docx (Word), .xlsx (Excel) — AI Parse uses Claude to auto-categorize tasks
             </div>
           </div>
         </div>
