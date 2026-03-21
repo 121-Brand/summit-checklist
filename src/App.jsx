@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import {
-  Loader2, FileText, Sparkles, Trash2
+  Loader2, FileText, Sparkles, Trash2, Link as LinkIcon
 } from "lucide-react";
 import { OWNERS, OWNER_COLORS } from "./data";
 import { useStore } from "./useStore";
@@ -21,6 +21,8 @@ import ActivityFeed from "./components/ActivityFeed";
 import TeamDashboard from "./components/TeamDashboard";
 import ExportView from "./components/ExportView";
 import DeadlineAlerts from "./components/DeadlineAlerts";
+import CalendarView from "./components/CalendarView";
+import ShareInvite from "./components/ShareInvite";
 
 const uid = () => "t" + Date.now() + Math.random().toString(36).slice(2, 6);
 
@@ -57,11 +59,35 @@ export default function App() {
   const [editText, setEditText] = useState("");
   const [editOwner, setEditOwner] = useState("");
   const [editPrio, setEditPrio] = useState("");
+  const [editBlockedBy, setEditBlockedBy] = useState([]);
   const [decomposing, setDecomposing] = useState(false);
   const [subtasks, setSubtasks] = useState(null);
 
   const fileRef = useRef(null);
   const sectionRefs = useRef({});
+
+  // ── Load shared project from URL ──
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const shareId = params.get("share");
+    if (shareId) {
+      fetch("/api/share?id=" + shareId)
+        .then(r => r.json())
+        .then(json => {
+          if (json.data) {
+            const id = uid();
+            const projects = [{ id, name: json.data.context?.goal || "Shared Project" }];
+            store.setProjects(projects);
+            store.setActiveId(id);
+            store.saveData(json.data, id);
+            setOnboarded(true);
+            try { localStorage.setItem("summit-onboarded", "true"); } catch {}
+            window.history.replaceState({}, "", window.location.pathname);
+          }
+        })
+        .catch(() => {});
+    }
+  }, []);
 
   // ── Init ──
   useEffect(() => {
@@ -148,12 +174,12 @@ export default function App() {
 
   const saveEdit = () => {
     if (!editId) return;
-    save({ ...d, sections: d.sections.map((s) => ({ ...s, items: s.items.map((i) => i.id === editId ? { ...i, text: editText, owner: editOwner, p: editPrio } : i) })) });
+    save({ ...d, sections: d.sections.map((s) => ({ ...s, items: s.items.map((i) => i.id === editId ? { ...i, text: editText, owner: editOwner, p: editPrio, blockedBy: editBlockedBy.length ? editBlockedBy : undefined } : i) })) });
     setEditId(null);
   };
 
   const editHandlers = {
-    start: (item) => { setEditId(item.id); setEditText(item.text); setEditOwner(item.owner); setEditPrio(item.p); setSubtasks(null); },
+    start: (item) => { setEditId(item.id); setEditText(item.text); setEditOwner(item.owner); setEditPrio(item.p); setEditBlockedBy(item.blockedBy || []); setSubtasks(null); },
   };
 
   const decomposeTask = async () => {
@@ -333,16 +359,18 @@ export default function App() {
           onNewProject={() => setShowNewProj(true)}
         />
 
-        <div key={view} className={`mx-auto p-4 sm:p-5 view-enter ${view === "kanban" || view === "team" ? "max-w-6xl" : "max-w-4xl"}`}>
+        <div key={view} className={`mx-auto p-4 sm:p-5 view-enter ${view === "kanban" || view === "team" || view === "calendar" ? "max-w-6xl" : "max-w-4xl"}`}>
           {view === "dash" && <><DeadlineAlerts d={d} allItems={allItems} /><Dashboard d={d} allItems={allItems} total={total} doneCount={doneCount} pct={pct} secStats={secStats} goToSection={goToSection} onSetup={() => setView("settings")} onUpload={triggerUpload} /></>}
           {view === "list" && <TaskList d={d} save={save} secStats={secStats} sectionRefs={sectionRefs} opened={opened} setOpened={setOpened} selected={selected} setSelected={setSelected} toggleCheck={toggleCheck} setItemStatus={setItemStatus} getStatus={getStatus} editHandlers={editHandlers} />}
           {view === "focus" && <FocusView d={d} allItems={allItems} focusPerson={focusPerson} setFocusPerson={setFocusPerson} toggleCheck={toggleCheck} setItemStatus={setItemStatus} getStatus={getStatus} selected={selected} setSelected={setSelected} editHandlers={editHandlers} />}
           {view === "kanban" && <KanbanBoard allItems={allItems} d={d} getStatus={getStatus} setItemStatus={setItemStatus} />}
+          {view === "calendar" && <CalendarView d={d} allItems={allItems} getStatus={getStatus} setItemStatus={setItemStatus} goToSection={goToSection} />}
           {view === "team" && <TeamDashboard d={d} allItems={allItems} total={total} doneCount={doneCount} />}
           {view === "docs" && <DocumentHub d={d} save={save} onUpload={triggerUpload} />}
           {view === "burndown" && <BurndownChart d={d} total={total} doneCount={doneCount} />}
           {view === "activity" && <ActivityFeed d={d} />}
           {view === "export" && <ExportView d={d} allItems={allItems} total={total} doneCount={doneCount} pct={pct} />}
+          {view === "share" && <ShareInvite d={d} save={save} store={store} />}
           {view === "settings" && <SettingsPage d={d} save={save} store={store} onUpload={triggerUpload} onClearProject={clearProject} />}
         </div>
       </div>
@@ -358,6 +386,38 @@ export default function App() {
             <div className="flex gap-2 mb-3">
               <select value={editOwner} onChange={(e) => setEditOwner(e.target.value)} className="flex-1 p-2 text-xs rounded-lg outline-none cursor-pointer" style={inputStyle}>{OWNERS.map((o) => <option key={o}>{o}</option>)}</select>
               <select value={editPrio} onChange={(e) => setEditPrio(e.target.value)} className="flex-1 p-2 text-xs rounded-lg outline-none cursor-pointer" style={inputStyle}><option>CRITICAL</option><option>HIGH</option><option>MEDIUM</option></select>
+            </div>
+
+            {/* Dependencies */}
+            <div className="mb-3 p-2.5 rounded-lg" style={{ background: theme.bg, border: `1px solid ${theme.border}` }}>
+              <div className="flex items-center gap-1.5 mb-2">
+                <LinkIcon size={11} style={{ color: theme.textDim }} />
+                <span style={{ fontSize: 10, fontWeight: 700, color: theme.textDim, textTransform: "uppercase", letterSpacing: "0.05em" }}>Blocked By</span>
+              </div>
+              {editBlockedBy.length > 0 && (
+                <div className="space-y-1 mb-2">
+                  {editBlockedBy.map(depId => {
+                    const depTask = allItems.find(i => i.id === depId);
+                    return depTask ? (
+                      <div key={depId} className="flex items-center gap-2 py-1 px-2 rounded" style={{ background: theme.bgCard, border: `1px solid ${theme.border}` }}>
+                        <span className="flex-1 truncate" style={{ fontSize: 10, color: d.checks[depId] ? "#22c55e" : theme.text }}>{depTask.text}</span>
+                        {d.checks[depId] && <span style={{ fontSize: 8, color: "#22c55e", fontWeight: 700 }}>DONE</span>}
+                        <button onClick={() => setEditBlockedBy(prev => prev.filter(id => id !== depId))} className="bg-transparent border-none cursor-pointer p-0"><Trash2 size={10} color="#ef4444" /></button>
+                      </div>
+                    ) : null;
+                  })}
+                </div>
+              )}
+              <select
+                value="" onChange={(e) => { if (e.target.value && !editBlockedBy.includes(e.target.value)) setEditBlockedBy(prev => [...prev, e.target.value]); e.target.selectedIndex = 0; }}
+                className="w-full p-1.5 text-[10px] rounded-lg outline-none cursor-pointer"
+                style={inputStyle}
+              >
+                <option value="">+ Add dependency...</option>
+                {allItems.filter(i => i.id !== editId && !editBlockedBy.includes(i.id)).slice(0, 50).map(i => (
+                  <option key={i.id} value={i.id}>{i.text.slice(0, 60)}</option>
+                ))}
+              </select>
             </div>
 
             {/* AI Decompose */}

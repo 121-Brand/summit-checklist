@@ -14,6 +14,7 @@ export default function ItemRow({
   const ck = checks[item.id];
   const isSel = selected.has(item.id);
   const status = getStatus(item.id);
+  const isBlocked = item.blockedBy?.length > 0 && item.blockedBy.some(id => !checks[id]);
 
   return (
     <div
@@ -80,6 +81,9 @@ export default function ItemRow({
             <option value="In Progress">In Progress</option>
             <option value="Done">Done</option>
           </select>
+          {isBlocked && (
+            <span className="px-1 rounded font-bold" style={{ fontSize: 8, background: "#ef444420", color: "#ef4444" }}>BLOCKED</span>
+          )}
           <button
             onClick={() => onNote(item.id)}
             className="border-none bg-transparent cursor-pointer p-0"
