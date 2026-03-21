@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import {
   Loader2, FileText, Sparkles, Trash2
 } from "lucide-react";
-import { DEFAULT_SECTIONS, OWNERS, OWNER_COLORS } from "./data";
+import { OWNERS, OWNER_COLORS } from "./data";
 import { useStore } from "./useStore";
 import { extractText, aiParseTasks } from "./docParser";
 import { useTheme } from "./ThemeContext";
@@ -17,6 +17,10 @@ import BurndownChart from "./components/BurndownChart";
 import SettingsPage from "./components/SettingsPage";
 import DocumentHub from "./components/DocumentHub";
 import WelcomeScreen from "./components/WelcomeScreen";
+import ActivityFeed from "./components/ActivityFeed";
+import TeamDashboard from "./components/TeamDashboard";
+import ExportView from "./components/ExportView";
+import DeadlineAlerts from "./components/DeadlineAlerts";
 
 const uid = () => "t" + Date.now() + Math.random().toString(36).slice(2, 6);
 
@@ -63,9 +67,9 @@ export default function App() {
   useEffect(() => {
     if (!store.projects) {
       const id = uid();
-      store.setProjects([{ id, name: "Pre-Sales Checklist" }]);
+      store.setProjects([{ id, name: "My Project" }]);
       store.setActiveId(id);
-      store.saveData({ sections: DEFAULT_SECTIONS, checks: {}, notes: {}, statuses: {}, log: [] }, id);
+      store.saveData({ sections: [], checks: {}, notes: {}, statuses: {}, log: [], context: {}, documents: [] }, id);
     } else if (store.projects.length && !store.data) {
       store.loadProject(store.projects[0].id);
     }
@@ -329,13 +333,16 @@ export default function App() {
           onNewProject={() => setShowNewProj(true)}
         />
 
-        <div key={view} className="max-w-4xl mx-auto p-4 sm:p-5 view-enter">
-          {view === "dash" && <Dashboard d={d} allItems={allItems} total={total} doneCount={doneCount} pct={pct} secStats={secStats} goToSection={goToSection} onSetup={() => setView("settings")} onUpload={triggerUpload} />}
+        <div key={view} className={`mx-auto p-4 sm:p-5 view-enter ${view === "kanban" || view === "team" ? "max-w-6xl" : "max-w-4xl"}`}>
+          {view === "dash" && <><DeadlineAlerts d={d} allItems={allItems} /><Dashboard d={d} allItems={allItems} total={total} doneCount={doneCount} pct={pct} secStats={secStats} goToSection={goToSection} onSetup={() => setView("settings")} onUpload={triggerUpload} /></>}
           {view === "list" && <TaskList d={d} save={save} secStats={secStats} sectionRefs={sectionRefs} opened={opened} setOpened={setOpened} selected={selected} setSelected={setSelected} toggleCheck={toggleCheck} setItemStatus={setItemStatus} getStatus={getStatus} editHandlers={editHandlers} />}
           {view === "focus" && <FocusView d={d} allItems={allItems} focusPerson={focusPerson} setFocusPerson={setFocusPerson} toggleCheck={toggleCheck} setItemStatus={setItemStatus} getStatus={getStatus} selected={selected} setSelected={setSelected} editHandlers={editHandlers} />}
           {view === "kanban" && <KanbanBoard allItems={allItems} d={d} getStatus={getStatus} setItemStatus={setItemStatus} />}
+          {view === "team" && <TeamDashboard d={d} allItems={allItems} total={total} doneCount={doneCount} />}
           {view === "docs" && <DocumentHub d={d} save={save} onUpload={triggerUpload} />}
           {view === "burndown" && <BurndownChart d={d} total={total} doneCount={doneCount} />}
+          {view === "activity" && <ActivityFeed d={d} />}
+          {view === "export" && <ExportView d={d} allItems={allItems} total={total} doneCount={doneCount} pct={pct} />}
           {view === "settings" && <SettingsPage d={d} save={save} store={store} onUpload={triggerUpload} onClearProject={clearProject} />}
         </div>
       </div>

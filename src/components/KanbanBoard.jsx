@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Badge } from "./Shared";
 import { OWNERS, OWNER_COLORS, PRIORITY_COLORS, STATUS_COLORS } from "../data";
 import { useTheme } from "../ThemeContext";
@@ -7,6 +7,26 @@ export default function KanbanBoard({ allItems, d, getStatus, setItemStatus }) {
   const { theme } = useTheme();
   const [groupBy, setGroupBy] = useState("status"); // status | owner | section | priority
   const [filterOwner, setFilterOwner] = useState("All");
+  const dragItem = useRef(null);
+  const dragOverCol = useRef(null);
+
+  const onDragStart = (e, item) => {
+    dragItem.current = item;
+    e.dataTransfer.effectAllowed = "move";
+    e.target.style.opacity = "0.4";
+  };
+  const onDragEnd = (e) => { e.target.style.opacity = "1"; dragItem.current = null; };
+  const onDragOver = (e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; };
+  const onDrop = (e, colKey) => {
+    e.preventDefault();
+    const item = dragItem.current;
+    if (!item) return;
+    // If grouping by status, change task status
+    if (groupBy === "status") {
+      setItemStatus(item.id, colKey);
+    }
+    dragItem.current = null;
+  };
 
   const filtered = filterOwner === "All" ? allItems : allItems.filter(i => i.owner === filterOwner);
 
@@ -72,7 +92,7 @@ export default function KanbanBoard({ allItems, d, getStatus, setItemStatus }) {
       {/* Board */}
       <div className="flex gap-3 overflow-x-auto pb-4" style={{ minHeight: 500 }}>
         {groups.map((col) => (
-          <div key={col.key} className="rounded-xl flex flex-col shrink-0" style={{ width: 280, minWidth: 280, background: theme.bgCard, border: `1px solid ${theme.border}` }}>
+          <div key={col.key} className="rounded-xl flex flex-col shrink-0" onDragOver={onDragOver} onDrop={(e) => onDrop(e, col.key)} style={{ width: 280, minWidth: 280, background: theme.bgCard, border: `1px solid ${theme.border}` }}>
             {/* Column header */}
             <div className="px-3 py-2.5 flex justify-between items-center shrink-0" style={{ borderBottom: `1px solid ${theme.border}` }}>
               <div className="flex items-center gap-2">
@@ -87,7 +107,7 @@ export default function KanbanBoard({ allItems, d, getStatus, setItemStatus }) {
             {/* Cards */}
             <div className="flex-1 overflow-y-auto p-2" style={{ maxHeight: "70vh" }}>
               {col.items.map((it) => (
-                <div key={it.id} className="p-2.5 rounded-lg mb-1.5" style={{ border: `1px solid ${theme.border}`, background: theme.bg }}>
+                <div key={it.id} draggable={groupBy === "status"} onDragStart={(e) => onDragStart(e, it)} onDragEnd={onDragEnd} className="p-2.5 rounded-lg mb-1.5 cursor-grab active:cursor-grabbing" style={{ border: `1px solid ${theme.border}`, background: theme.bg }}>
                   <div className="leading-snug mb-2" style={{ fontSize: 11, color: theme.text }}>{it.text}</div>
                   <div className="flex gap-1 items-center flex-wrap">
                     <Badge text={it.owner} color={OWNER_COLORS[it.owner]} />

@@ -1,6 +1,7 @@
 import {
   LayoutDashboard, ListChecks, Target, Columns3, TrendingDown,
-  FileText, Settings, ChevronLeft, ChevronRight, Clipboard
+  FileText, Settings, ChevronLeft, ChevronRight, Clipboard,
+  Activity, Users, Download
 } from "lucide-react";
 import { useTheme } from "../ThemeContext";
 
@@ -9,8 +10,11 @@ const NAV_ITEMS = [
   { id: "list", label: "Tasks", icon: ListChecks },
   { id: "focus", label: "Focus", icon: Target },
   { id: "kanban", label: "Board", icon: Columns3 },
+  { id: "team", label: "Team", icon: Users },
   { id: "docs", label: "Docs", icon: FileText },
   { id: "burndown", label: "Burndown", icon: TrendingDown },
+  { id: "activity", label: "Activity", icon: Activity },
+  { id: "export", label: "Export", icon: Download },
   { id: "settings", label: "Settings", icon: Settings },
 ];
 
