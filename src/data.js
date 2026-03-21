@@ -1,0 +1,176 @@
+export const DEFAULT_SECTIONS = [
+  { id: "m1", title: "Marketing", due: "2026-03-22", items: [
+    { id: "m1-0", text: "Run every Marketing scenario 10+ times with zero failures", owner: "Chase", p: "CRITICAL" },
+    { id: "m1-1", text: "Lead capture triggers fire on every inbound channel", owner: "Chase", p: "CRITICAL" },
+    { id: "m1-2", text: "Opt-out/unsubscribe stops all messages immediately", owner: "Chase", p: "CRITICAL" },
+    { id: "m1-3", text: "AI-generated content sounds like a construction company", owner: "Spencer", p: "HIGH" },
+    { id: "m1-4", text: "Drip/nurture sequences send at correct intervals, no double-sends", owner: "Chase", p: "HIGH" },
+    { id: "m1-5", text: "Edge cases (missing email/phone) handled gracefully", owner: "Chase", p: "HIGH" },
+    { id: "m1-6", text: "Outgoing templates reviewed for spelling, grammar, tone", owner: "Spencer", p: "HIGH" },
+  ]},
+  { id: "m2", title: "New Lead", due: "2026-03-22", items: [
+    { id: "m2-0", text: "Run every New Lead scenario 10+ times with zero failures", owner: "Chase", p: "CRITICAL" },
+    { id: "m2-1", text: "Test intake from every source (website, phone, referral, manual)", owner: "Chase", p: "CRITICAL" },
+    { id: "m2-2", text: "Duplicate detection flags correctly, no double records", owner: "Chase", p: "CRITICAL" },
+    { id: "m2-3", text: "Lead qualification categorizes correctly (hot/warm/cold)", owner: "Chase", p: "HIGH" },
+    { id: "m2-4", text: "Notifications reach the right person in the right format", owner: "Chase", p: "HIGH" },
+    { id: "m2-5", text: "Lead source tracking accurate per channel", owner: "Spencer", p: "HIGH" },
+  ]},
+  { id: "m3", title: "Sales", due: "2026-03-22", items: [
+    { id: "m3-0", text: "Run every Sales scenario 10+ times with zero failures", owner: "Chase", p: "CRITICAL" },
+    { id: "m3-1", text: "Estimate/proposal generation with real construction job types", owner: "Chase", p: "CRITICAL" },
+    { id: "m3-2", text: "Follow-up sequences trigger correctly, stop on response", owner: "Chase", p: "HIGH" },
+    { id: "m3-3", text: "Pipeline stage transitions work, nothing stuck", owner: "Chase", p: "HIGH" },
+    { id: "m3-4", text: "AI estimates include disclaimers, look professional", owner: "Spencer", p: "HIGH" },
+  ]},
+  { id: "m4", title: "Contract", due: "2026-03-22", items: [
+    { id: "m4-0", text: "Run every Contract scenario 10+ times with zero failures", owner: "Chase", p: "CRITICAL" },
+    { id: "m4-1", text: "Generation populates correct terms, scope, pricing per job type", owner: "Chase", p: "CRITICAL" },
+    { id: "m4-2", text: "Signature workflow works end-to-end (send, remind, track, confirm)", owner: "Chase", p: "CRITICAL" },
+    { id: "m4-3", text: "Contract amounts match approved estimate exactly", owner: "Chase", p: "CRITICAL" },
+    { id: "m4-4", text: "Reminder logic for unsigned contracts correct, stops after signing", owner: "Chase", p: "HIGH" },
+    { id: "m4-5", text: "Contract PDFs formatted professionally", owner: "Spencer", p: "HIGH" },
+  ]},
+  { id: "m5", title: "Job Scope", due: "2026-03-23", items: [
+    { id: "m5-0", text: "Run every Job Scope scenario 10+ times with zero failures", owner: "Chase", p: "CRITICAL" },
+    { id: "m5-1", text: "Scope works across all job types (residential, commercial, remodel, new)", owner: "Chase", p: "CRITICAL" },
+    { id: "m5-2", text: "Change orders update all downstream scenarios", owner: "Chase", p: "CRITICAL" },
+    { id: "m5-3", text: "Scope items detailed enough for a crew to work from", owner: "Spencer", p: "HIGH" },
+    { id: "m5-4", text: "Multi-phase jobs handled correctly", owner: "Chase", p: "HIGH" },
+    { id: "m5-5", text: "AI-generated scope uses correct construction terminology", owner: "Spencer", p: "HIGH" },
+  ]},
+  { id: "m6", title: "Checkups", due: "2026-03-23", items: [
+    { id: "m6-0", text: "Run every Checkups scenario 10+ times with zero failures", owner: "Chase", p: "CRITICAL" },
+    { id: "m6-1", text: "Checkup scheduling fires at right milestones/intervals", owner: "Chase", p: "CRITICAL" },
+    { id: "m6-2", text: "Overlapping jobs get independent schedules, no cross-contamination", owner: "Chase", p: "CRITICAL" },
+    { id: "m6-3", text: "Client-facing messages professional, warm, construction-appropriate", owner: "Spencer", p: "HIGH" },
+    { id: "m6-4", text: "No-response escalation/follow-up logic works", owner: "Chase", p: "HIGH" },
+    { id: "m6-5", text: "Checkups stop when job is complete or cancelled", owner: "Chase", p: "HIGH" },
+  ]},
+  { id: "m7", title: "Invoices", due: "2026-03-23", items: [
+    { id: "m7-0", text: "Run every Invoice scenario 10+ times with zero failures", owner: "Chase", p: "CRITICAL" },
+    { id: "m7-1", text: "Invoice amounts match contract + change orders exactly", owner: "Chase", p: "CRITICAL" },
+    { id: "m7-2", text: "Invoice numbers sequential, unique, never duplicate", owner: "Chase", p: "CRITICAL" },
+    { id: "m7-3", text: "Overdue reminders at correct intervals with escalation tone", owner: "Chase", p: "HIGH" },
+    { id: "m7-4", text: "Partial payments tracked with correct remaining balance", owner: "Chase", p: "HIGH" },
+    { id: "m7-5", text: "Tax calculations correct per jurisdiction", owner: "Spencer", p: "HIGH" },
+  ]},
+  { id: "m8", title: "Post Job", due: "2026-03-23", items: [
+    { id: "m8-0", text: "Run every Post Job scenario 10+ times with zero failures", owner: "Chase", p: "CRITICAL" },
+    { id: "m8-1", text: "Post-job scenarios stop on opt-out or dispute", owner: "Chase", p: "CRITICAL" },
+    { id: "m8-2", text: "Review requests go out at optimal time after completion", owner: "Chase", p: "HIGH" },
+    { id: "m8-3", text: "Referral workflow triggers, tracks, credits correctly", owner: "Chase", p: "HIGH" },
+    { id: "m8-4", text: "Warranty/guarantee reminders accurate", owner: "Spencer", p: "HIGH" },
+  ]},
+  { id: "s9", title: "Integration & Excel", due: "2026-03-24", items: [
+    { id: "s9-0", text: "Map every dependency between all 31 scenarios (visual flowchart)", owner: "Spencer", p: "CRITICAL" },
+    { id: "s9-1", text: "Full lifecycle test end-to-end across all 8 modules", owner: "Chase", p: "CRITICAL" },
+    { id: "s9-2", text: "Data passed between modules arrives intact, no truncation", owner: "Chase", p: "CRITICAL" },
+    { id: "s9-3", text: "Mid-chain module failure handled gracefully downstream", owner: "Chase", p: "CRITICAL" },
+    { id: "s9-4", text: "Every cell, column, named range referenced by scenarios exists", owner: "Chase", p: "CRITICAL" },
+    { id: "s9-5", text: "Fresh blank Excel sheet initializes all 31 scenarios", owner: "Chase", p: "CRITICAL" },
+    { id: "s9-6", text: "All formulas calculate correctly, no errors", owner: "Spencer", p: "CRITICAL" },
+    { id: "s9-7", text: "Master data dictionary created", owner: "Spencer", p: "CRITICAL" },
+  ]},
+  { id: "s10", title: "Error Handling", due: "2026-03-24", items: [
+    { id: "s10-0", text: "Every scenario has meaningful error messages", owner: "Spencer", p: "CRITICAL" },
+    { id: "s10-1", text: "Retry logic works on temporary failures", owner: "Chase", p: "CRITICAL" },
+    { id: "s10-2", text: "Failed runs send alert notifications", owner: "Chase", p: "CRITICAL" },
+    { id: "s10-3", text: "No failure corrupts Excel or leaves half-written data", owner: "Chase", p: "CRITICAL" },
+    { id: "s10-4", text: "Recovery procedures documented for each scenario", owner: "Spencer", p: "HIGH" },
+  ]},
+  { id: "s11", title: "Onboarding", due: "2026-03-25", items: [
+    { id: "s11-0", text: "Deploy entire package to fresh Make.com account, works end-to-end", owner: "Chase", p: "CRITICAL" },
+    { id: "s11-1", text: "Make.com plan tier and min operations/month documented", owner: "Chase", p: "CRITICAL" },
+    { id: "s11-2", text: "Every third-party connection and credential documented", owner: "Spencer", p: "CRITICAL" },
+    { id: "s11-3", text: "Step-by-step onboarding guide from blank starting point", owner: "Spencer", p: "CRITICAL" },
+    { id: "s11-4", text: "Chase follows Spencer's guide in clean env, fix all snags", owner: "Chase", p: "CRITICAL" },
+    { id: "s11-5", text: "No scenario relies on dev-only connections", owner: "Chase", p: "CRITICAL" },
+    { id: "s11-6", text: "Pre-onboarding checklist for client", owner: "Spencer", p: "HIGH" },
+  ]},
+  { id: "s12", title: "Documentation", due: "2026-03-26", items: [
+    { id: "s12-0", text: "Master architecture diagram: all 8 modules, 31 scenarios", owner: "Spencer", p: "CRITICAL" },
+    { id: "s12-1", text: "Every scenario documented: purpose, trigger, I/O, frequency", owner: "Spencer", p: "CRITICAL" },
+    { id: "s12-2", text: "Non-technical user guide in construction-business language", owner: "Spencer", p: "CRITICAL" },
+    { id: "s12-3", text: "Troubleshooting decision tree + top 20 problems with fixes", owner: "Spencer", p: "HIGH" },
+    { id: "s12-4", text: "Quick-reference cheat sheet (1-2 pages)", owner: "Spencer", p: "MEDIUM" },
+  ]},
+  { id: "s13", title: "Security & Compliance", due: "2026-03-25", items: [
+    { id: "s13-0", text: "Full data access audit for every scenario", owner: "Spencer", p: "CRITICAL" },
+    { id: "s13-1", text: "No client data in dev environment, test accounts, or logs", owner: "Chase", p: "CRITICAL" },
+    { id: "s13-2", text: "Multi-client isolation confirmed, no data leaks", owner: "Chase", p: "CRITICAL" },
+    { id: "s13-3", text: "Access control defined per role", owner: "You", p: "CRITICAL" },
+    { id: "s13-4", text: "Separate credentials per client, no shared keys", owner: "Chase", p: "CRITICAL" },
+    { id: "s13-5", text: "Terms of Service reviewed by legal", owner: "You", p: "CRITICAL" },
+  ]},
+  { id: "s14", title: "Scalability", due: "2026-03-25", items: [
+    { id: "s14-0", text: "Max expected single-client monthly volume tested", owner: "Chase", p: "CRITICAL" },
+    { id: "s14-1", text: "Per-client architecture defined, 10+ clients confirmed", owner: "You", p: "CRITICAL" },
+    { id: "s14-2", text: "Per-client cost model documented", owner: "You", p: "HIGH" },
+  ]},
+  { id: "s15", title: "Support & Maintenance", due: "2026-03-26", items: [
+    { id: "s15-0", text: "Support ticketing system set up", owner: "Chase", p: "CRITICAL" },
+    { id: "s15-1", text: "Support tiers and response times defined", owner: "You", p: "CRITICAL" },
+    { id: "s15-2", text: "Monitoring and immediate failure alerts for every scenario", owner: "Chase", p: "CRITICAL" },
+    { id: "s15-3", text: "Update, deploy, and rollback process defined", owner: "You", p: "CRITICAL" },
+  ]},
+  { id: "s16", title: "AI Expectations", due: "2026-03-26", items: [
+    { id: "s16-0", text: "What system does/doesn't do one-pager for clients", owner: "Spencer", p: "CRITICAL" },
+    { id: "s16-1", text: "Every human-review point identified", owner: "Spencer", p: "CRITICAL" },
+    { id: "s16-2", text: "AI estimates require human approval before sending", owner: "You", p: "CRITICAL" },
+    { id: "s16-3", text: "Answers prepared for 'what if AI says something wrong'", owner: "You", p: "CRITICAL" },
+  ]},
+  { id: "s17", title: "Training", due: "2026-03-26", items: [
+    { id: "s17-0", text: "Structured onboarding session designed (60-90 min)", owner: "Chase", p: "CRITICAL" },
+    { id: "s17-1", text: "Training slide deck created for consistent delivery", owner: "Spencer", p: "CRITICAL" },
+    { id: "s17-2", text: "Complete video walkthrough recorded", owner: "Spencer", p: "HIGH" },
+    { id: "s17-3", text: "Quick start guide: 5 things for week one", owner: "Spencer", p: "HIGH" },
+  ]},
+  { id: "s18", title: "Disaster Recovery", due: "2026-03-26", items: [
+    { id: "s18-0", text: "Manual fallback documented for every automated process", owner: "Spencer", p: "CRITICAL" },
+    { id: "s18-1", text: "System Down emergency guide created", owner: "Spencer", p: "CRITICAL" },
+    { id: "s18-2", text: "Full recovery test after simulated outage, no data loss", owner: "Chase", p: "CRITICAL" },
+    { id: "s18-3", text: "Regular Excel backup process (daily/weekly)", owner: "Chase", p: "HIGH" },
+  ]},
+  { id: "s19", title: "Sales & Commercial", due: "2026-03-27", items: [
+    { id: "s19-0", text: "Pricing finalized: setup + monthly + usage components", owner: "You", p: "CRITICAL" },
+    { id: "s19-1", text: "True cost per client calculated, margins confirmed", owner: "You", p: "CRITICAL" },
+    { id: "s19-2", text: "Base vs. add-ons with 2-3 pricing tiers defined", owner: "You", p: "CRITICAL" },
+    { id: "s19-3", text: "Professional sales deck in construction-business language", owner: "You", p: "CRITICAL" },
+    { id: "s19-4", text: "Live demo environment with realistic data built", owner: "Spencer", p: "CRITICAL" },
+    { id: "s19-5", text: "Service agreement reviewed by attorney", owner: "You", p: "CRITICAL" },
+  ]},
+  { id: "s20", title: "Post-Sale Plan", due: "2026-03-27", items: [
+    { id: "s20-0", text: "30/60/90 day check-ins defined with templates", owner: "Chase", p: "CRITICAL" },
+    { id: "s20-1", text: "Usage tracking set up for churn risk detection", owner: "Chase", p: "HIGH" },
+    { id: "s20-2", text: "Onboarding-to-support handoff defined", owner: "You", p: "HIGH" },
+  ]},
+  { id: "s21", title: "Final Validation", due: "2026-03-28", items: [
+    { id: "s21-0", text: "Beta test with 1-2 real construction businesses", owner: "Chase", p: "CRITICAL" },
+    { id: "s21-1", text: "Structured feedback collected + all critical issues fixed", owner: "Spencer", p: "CRITICAL" },
+    { id: "s21-2", text: "Beta environment running stable 2-4 weeks", owner: "Chase", p: "CRITICAL" },
+    { id: "s21-3", text: "All 31 scenarios in sequence, clean env, zero errors", owner: "Chase", p: "CRITICAL" },
+    { id: "s21-4", text: "Worst-day simulation: recovery confirmed", owner: "Chase", p: "CRITICAL" },
+    { id: "s21-5", text: "GO/NO-GO: Everything passes, legal signed off", owner: "You", p: "CRITICAL" },
+  ]},
+];
+
+export const OWNERS = ["You", "Spencer", "Chase"];
+
+export const OWNER_COLORS = {
+  You: "#f59e0b",
+  Spencer: "#818cf8",
+  Chase: "#22d3ee",
+};
+
+export const PRIORITY_COLORS = {
+  CRITICAL: "#ef4444",
+  HIGH: "#f59e0b",
+  MEDIUM: "#22c55e",
+};
+
+export const STATUS_COLORS = {
+  "Not Started": "#64748b",
+  "In Progress": "#f59e0b",
+  Done: "#22c55e",
+};
