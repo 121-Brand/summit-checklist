@@ -271,11 +271,18 @@ export default function App() {
     const id = uid();
     const np = [...store.projects, { id, name: newProjName.trim() }];
     store.setProjects(np);
-    const nd = { sections: [], checks: {}, notes: {}, statuses: {}, log: [] };
+    const nd = { sections: [], checks: {}, notes: {}, statuses: {}, log: {}, context: {} };
     store.saveData(nd, id);
     store.setActiveId(id);
     store.saveData(nd, id);
     setNewProjName(""); setShowNewProj(false);
+    // Open setup questionnaire for new project
+    setShowSetup(true);
+  };
+
+  const clearProject = () => {
+    if (!window.confirm("Clear all tasks and start fresh? This keeps your project context but removes all sections and tasks.")) return;
+    save({ ...d, sections: [], checks: {}, notes: {}, statuses: {}, log: [] });
   };
 
   const deleteProject = (id) => {
@@ -548,6 +555,14 @@ export default function App() {
           <button onClick={() => setShowSetup(true)} className="mt-2 w-full py-1.5 rounded-md bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-[10px] font-semibold cursor-pointer flex items-center justify-center gap-1">
             <Sparkles size={10} /> Project Setup &amp; AI Context
           </button>
+          <div className="flex gap-2 mt-1.5">
+            <button onClick={() => { fileRef.current?.click(); setShowMgr(false); }} className="flex-1 py-1.5 rounded-md bg-slate-700 text-slate-300 border-none text-[10px] font-semibold cursor-pointer flex items-center justify-center gap-1">
+              <Upload size={10} /> Upload &amp; Parse Document
+            </button>
+            <button onClick={clearProject} className="py-1.5 px-3 rounded-md bg-red-500/10 border border-red-500/30 text-red-400 text-[10px] font-semibold cursor-pointer">
+              Clear All Tasks
+            </button>
+          </div>
         </div>
       ) : null}
 
@@ -666,6 +681,23 @@ export default function App() {
         {/* DASHBOARD */}
         {view === "dash" ? (
           <div>
+            {total === 0 ? (
+              <div className="py-12 text-center">
+                <div className="text-4xl mb-3">🚀</div>
+                <div className="text-lg font-bold text-slate-200 mb-1">Get Started</div>
+                <div className="text-xs text-slate-400 mb-6 max-w-md mx-auto">Set up your project context, then upload your documents and let AI break them into organized tasks.</div>
+                <div className="flex flex-col gap-3 max-w-xs mx-auto">
+                  <button onClick={() => setShowSetup(true)} className="w-full py-3 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-sm font-bold cursor-pointer flex items-center justify-center gap-2">
+                    <Sparkles size={16} /> Step 1: Project Setup
+                  </button>
+                  <button onClick={() => fileRef.current?.click()} className="w-full py-3 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-sm font-bold cursor-pointer flex items-center justify-center gap-2">
+                    <Upload size={16} /> Step 2: Upload Documents
+                  </button>
+                  <div className="text-[10px] text-slate-500 mt-2">Supports Word (.docx), Excel (.xlsx), CSV, and text files. AI will auto-extract tasks, assign owners, and set priorities.</div>
+                </div>
+              </div>
+            ) : (
+            <div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
               {[
                 { l: "Progress", v: `${pct}%`, c: "#06b6d4" },
@@ -705,6 +737,8 @@ export default function App() {
                 </div>
               );
             })}
+          </div>
+          )}
           </div>
         ) : null}
 
