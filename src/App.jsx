@@ -39,6 +39,7 @@ export default function App() {
   const [importError, setImportError] = useState(null);
   const [aiParsing, setAiParsing] = useState(false);
   const [aiUsage, setAiUsage] = useState(null);
+  const [importFileMeta, setImportFileMeta] = useState(null); // {name, size, type}
 
   // Project creation
   const [showNewProj, setShowNewProj] = useState(false);
@@ -167,6 +168,9 @@ export default function App() {
     const f = e.target.files?.[0];
     if (!f) return;
     setImportError(null); setImportMode("manual");
+    // Save file metadata for document tracking
+    const ext = f.name.split(".").pop()?.toLowerCase() || "";
+    setImportFileMeta({ name: f.name, size: f.size, type: ext });
     try {
       const result = await extractText(f);
       setImportTasks(result.lines.map((line, i) => ({ _id: i, text: line, owner: "Chase", p: "HIGH", section: "", include: true })));
@@ -212,6 +216,9 @@ export default function App() {
   const doImport = () => {
     if (!importTasks?.length) return;
     const tasks = importTasks.filter((t) => t.include && t.text.trim());
+    const taskCount = tasks.length;
+    let newData = { ...d };
+
     if (importMode === "ai") {
       const map = {};
       tasks.forEach((t) => { const s = t.section || "Imported"; if (!map[s]) map[s] = []; map[s].push({ id: uid(), text: t.text, owner: t.owner, p: t.p }); });
@@ -221,13 +228,30 @@ export default function App() {
         if (existing) secs = secs.map((s) => s.id === existing.id ? { ...s, items: [...s.items, ...items] } : s);
         else secs.push({ id: uid(), title: name, due: "2026-03-28", items });
       });
-      save({ ...d, sections: secs });
+      newData = { ...newData, sections: secs };
     } else {
       if (!importSec) return;
       const items = tasks.map((t) => ({ id: uid(), text: t.text, owner: t.owner, p: t.p }));
-      save({ ...d, sections: d.sections.map((s) => s.id === importSec ? { ...s, items: [...s.items, ...items] } : s) });
+      newData = { ...newData, sections: newData.sections.map((s) => s.id === importSec ? { ...s, items: [...s.items, ...items] } : s) };
     }
-    setShowImport(false); setImportTasks(null); setImportMode("manual");
+
+    // Save document record
+    if (importFileMeta) {
+      const doc = {
+        id: "doc_" + Date.now() + Math.random().toString(36).slice(2, 6),
+        name: importFileMeta.name,
+        size: importFileMeta.size,
+        type: importFileMeta.type,
+        uploadedAt: Date.now(),
+        taskCount,
+        parseMode: importMode,
+        extractedText: tasks.map((t) => t.text).join("\n"),
+      };
+      newData = { ...newData, documents: [...(newData.documents || []), doc] };
+    }
+
+    save(newData);
+    setShowImport(false); setImportTasks(null); setImportMode("manual"); setImportFileMeta(null);
   };
 
   const triggerUpload = () => fileRef.current?.click();
@@ -269,7 +293,7 @@ export default function App() {
           {view === "list" && <TaskList d={d} save={save} secStats={secStats} sectionRefs={sectionRefs} opened={opened} setOpened={setOpened} selected={selected} setSelected={setSelected} toggleCheck={toggleCheck} setItemStatus={setItemStatus} getStatus={getStatus} editHandlers={editHandlers} />}
           {view === "focus" && <FocusView d={d} allItems={allItems} focusPerson={focusPerson} setFocusPerson={setFocusPerson} toggleCheck={toggleCheck} setItemStatus={setItemStatus} getStatus={getStatus} selected={selected} setSelected={setSelected} editHandlers={editHandlers} />}
           {view === "kanban" && <KanbanBoard allItems={allItems} d={d} getStatus={getStatus} setItemStatus={setItemStatus} />}
-          {view === "docs" && <DocumentHub onUpload={triggerUpload} />}
+          {view === "docs" && <DocumentHub d={d} save={save} onUpload={triggerUpload} />}
           {view === "burndown" && <BurndownChart d={d} total={total} doneCount={doneCount} />}
           {view === "settings" && <SettingsPage d={d} save={save} store={store} onUpload={triggerUpload} onClearProject={clearProject} />}
         </div>
@@ -311,7 +335,7 @@ export default function App() {
 
       {/* Import */}
       {showImport && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => { setShowImport(false); setImportTasks(null); setImportMode("manual"); setImportError(null); }}>
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => { setShowImport(false); setImportTasks(null); setImportMode("manual"); setImportError(null); setImportFileMeta(null); }}>
           <div onClick={(e) => e.stopPropagation()} className="rounded-2xl p-5 w-full max-w-2xl max-h-[85vh] overflow-auto" style={{ background: theme.bgCard, border: `1px solid ${theme.border}` }}>
             <div className="flex items-center gap-2 mb-4">
               <FileText size={18} style={{ color: theme.accent }} />
@@ -366,7 +390,7 @@ export default function App() {
                   ))}
                 </div>
                 <div className="flex gap-2 justify-end">
-                  <button onClick={() => { setShowImport(false); setImportTasks(null); setImportError(null); }} className="px-4 py-2 rounded-lg border-none text-xs cursor-pointer" style={{ background: theme.bgHover, color: theme.textMuted }}>Cancel</button>
+                  <button onClick={() => { setShowImport(false); setImportTasks(null); setImportError(null); setImportFileMeta(null); }} className="px-4 py-2 rounded-lg border-none text-xs cursor-pointer" style={{ background: theme.bgHover, color: theme.textMuted }}>Cancel</button>
                   <button onClick={doImport} className="px-4 py-2 rounded-lg border-none text-xs font-bold cursor-pointer" style={{ background: (importMode === "ai" || importSec) ? theme.accent : theme.bgHover, color: (importMode === "ai" || importSec) ? "#fff" : theme.textDim }}>Import {importTasks.filter(t => t.include).length} Tasks</button>
                 </div>
               </div>
