@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { Sparkles, Loader2 } from "lucide-react";
 import ItemRow from "./ItemRow";
 import { Badge } from "./Shared";
 import { OWNERS, OWNER_COLORS, PRIORITY_COLORS } from "../data";
@@ -15,6 +17,8 @@ export default function FocusView({
   selected, setSelected, editHandlers,
 }) {
   const { theme } = useTheme();
+  const [aiRecs, setAiRecs] = useState(null);
+  const [aiLoading, setAiLoading] = useState(false);
 
   const focusPool = focusPerson === "All" ? allItems : allItems.filter((i) => i.owner === focusPerson);
   const focusItems = focusPool
@@ -33,7 +37,25 @@ export default function FocusView({
     setSelected(n);
   };
 
-  const deleteItem = () => {}; // No delete from focus view
+  const deleteItem = () => {};
+
+  const askAiFocus = async () => {
+    setAiLoading(true); setAiRecs(null);
+    try {
+      const pending = focusPool.filter((i) => !d.checks[i.id]).slice(0, 30);
+      const res = await fetch("/api/ai-assist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "focus",
+          data: { person: focusPerson, tasks: pending, context: d.context || {} }
+        })
+      });
+      const json = await res.json();
+      if (json.result) setAiRecs(json.result);
+    } catch (e) { console.error(e); }
+    setAiLoading(false);
+  };
 
   return (
     <div>
@@ -42,11 +64,11 @@ export default function FocusView({
       </div>
 
       {/* Person filter */}
-      <div className="flex gap-1.5 mb-4 flex-wrap">
+      <div className="flex gap-1.5 mb-4 flex-wrap items-center">
         {["All", ...OWNERS].map((o) => (
           <button
             key={o}
-            onClick={() => setFocusPerson(o)}
+            onClick={() => { setFocusPerson(o); setAiRecs(null); }}
             className="px-3 py-1.5 rounded-lg border-none cursor-pointer font-semibold transition-all"
             style={{
               fontSize: 12,
@@ -58,7 +80,44 @@ export default function FocusView({
             {o}
           </button>
         ))}
+        <button
+          onClick={askAiFocus}
+          disabled={aiLoading || focusItems.length === 0}
+          className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg border-none cursor-pointer font-semibold transition-all"
+          style={{ fontSize: 12, background: theme.accentBg, color: theme.accent, opacity: aiLoading || focusItems.length === 0 ? 0.5 : 1 }}
+        >
+          {aiLoading ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
+          What should {focusPerson === "All" ? "we" : focusPerson === "You" ? "I" : focusPerson} focus on?
+        </button>
       </div>
+
+      {/* AI Recommendations */}
+      {aiRecs && (
+        <div className="mb-5 p-4 rounded-xl" style={{ background: theme.accentBg, border: `1px solid ${theme.accent}30` }}>
+          <div className="flex items-center gap-2 mb-3">
+            <Sparkles size={14} style={{ color: theme.accent }} />
+            <span className="font-bold" style={{ fontSize: 12, color: theme.accent }}>AI Recommendations</span>
+            <button onClick={() => setAiRecs(null)} className="ml-auto text-xs bg-transparent border-none cursor-pointer" style={{ color: theme.textDim }}>✕</button>
+          </div>
+          {aiRecs.dailyAdvice && (
+            <div className="mb-3 italic" style={{ fontSize: 12, color: theme.textMuted, lineHeight: 1.5 }}>
+              "{aiRecs.dailyAdvice}"
+            </div>
+          )}
+          {(aiRecs.recommendations || []).map((rec, i) => {
+            const task = focusPool.filter(t => !d.checks[t.id])[rec.taskIndex - 1];
+            return (
+              <div key={i} className="flex items-start gap-2 mb-2 pb-2" style={{ borderBottom: i < (aiRecs.recommendations || []).length - 1 ? `1px solid ${theme.border}` : "none" }}>
+                <span className="font-extrabold shrink-0" style={{ fontSize: 13, color: theme.accent, width: 20 }}>{i + 1}</span>
+                <div className="flex-1">
+                  <div className="font-semibold" style={{ fontSize: 11.5, color: theme.text }}>{task?.text || `Task #${rec.taskIndex}`}</div>
+                  <div style={{ fontSize: 10, color: theme.textMuted, marginTop: 2 }}>{rec.reason}</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {focusItems.length === 0 ? (
         <div className="py-12 text-center">

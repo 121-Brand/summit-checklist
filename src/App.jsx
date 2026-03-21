@@ -34,7 +34,6 @@ export default function App() {
   // Import state
   const [showImport, setShowImport] = useState(false);
   const [importTasks, setImportTasks] = useState(null);
-  const [importSec, setImportSec] = useState("");
   const [importMode, setImportMode] = useState("manual");
   const [importError, setImportError] = useState(null);
   const [aiParsing, setAiParsing] = useState(false);
@@ -50,6 +49,8 @@ export default function App() {
   const [editText, setEditText] = useState("");
   const [editOwner, setEditOwner] = useState("");
   const [editPrio, setEditPrio] = useState("");
+  const [decomposing, setDecomposing] = useState(false);
+  const [subtasks, setSubtasks] = useState(null);
 
   const fileRef = useRef(null);
   const sectionRefs = useRef({});
@@ -144,7 +145,37 @@ export default function App() {
   };
 
   const editHandlers = {
-    start: (item) => { setEditId(item.id); setEditText(item.text); setEditOwner(item.owner); setEditPrio(item.p); },
+    start: (item) => { setEditId(item.id); setEditText(item.text); setEditOwner(item.owner); setEditPrio(item.p); setSubtasks(null); },
+  };
+
+  const decomposeTask = async () => {
+    setDecomposing(true); setSubtasks(null);
+    try {
+      const res = await fetch("/api/ai-assist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "decompose",
+          data: { task: { text: editText, owner: editOwner, p: editPrio }, context: d.context || {} }
+        })
+      });
+      const json = await res.json();
+      if (json.result?.subtasks) setSubtasks(json.result.subtasks);
+    } catch (e) { console.error(e); }
+    setDecomposing(false);
+  };
+
+  const addSubtasks = () => {
+    if (!subtasks?.length || !editId) return;
+    // Find which section the parent task is in
+    const sec = d.sections.find((s) => s.items.some((i) => i.id === editId));
+    if (!sec) return;
+    const parentIdx = sec.items.findIndex((i) => i.id === editId);
+    const newItems = subtasks.map((st) => ({ id: uid(), text: st.text, owner: st.owner || editOwner, p: st.priority || editPrio }));
+    const updatedItems = [...sec.items];
+    updatedItems.splice(parentIdx + 1, 0, ...newItems);
+    save({ ...d, sections: d.sections.map((s) => s.id === sec.id ? { ...s, items: updatedItems } : s) });
+    setEditId(null); setSubtasks(null);
   };
 
   const createProject = () => {
@@ -212,28 +243,30 @@ export default function App() {
   const updateImportTask = (id, field, value) => setImportTasks((prev) => prev.map((t) => t._id === id ? { ...t, [field]: value } : t));
   const removeImportTask = (id) => setImportTasks((prev) => prev.filter((t) => t._id !== id));
   const setAllImportOwner = (owner) => setImportTasks((prev) => prev.map((t) => ({ ...t, owner })));
+  const setAllImportSection = (section) => setImportTasks((prev) => prev.map((t) => ({ ...t, section })));
 
   const doImport = () => {
     if (!importTasks?.length) return;
     const tasks = importTasks.filter((t) => t.include && t.text.trim());
+    if (!tasks.length) return;
+    // Check that every task has a section assigned
+    if (tasks.some((t) => !t.section)) return;
     const taskCount = tasks.length;
     let newData = { ...d };
 
-    if (importMode === "ai") {
-      const map = {};
-      tasks.forEach((t) => { const s = t.section || "Imported"; if (!map[s]) map[s] = []; map[s].push({ id: uid(), text: t.text, owner: t.owner, p: t.p }); });
-      let secs = [...d.sections];
-      Object.entries(map).forEach(([name, items]) => {
-        const existing = secs.find((s) => s.title.toLowerCase() === name.toLowerCase());
-        if (existing) secs = secs.map((s) => s.id === existing.id ? { ...s, items: [...s.items, ...items] } : s);
-        else secs.push({ id: uid(), title: name, due: "2026-03-28", items });
-      });
-      newData = { ...newData, sections: secs };
-    } else {
-      if (!importSec) return;
-      const items = tasks.map((t) => ({ id: uid(), text: t.text, owner: t.owner, p: t.p }));
-      newData = { ...newData, sections: newData.sections.map((s) => s.id === importSec ? { ...s, items: [...s.items, ...items] } : s) };
-    }
+    // Both manual and AI modes: group tasks by their per-task section
+    const map = {};
+    tasks.forEach((t) => { const s = t.section || "Imported"; if (!map[s]) map[s] = []; map[s].push({ id: uid(), text: t.text, owner: t.owner, p: t.p }); });
+    let secs = [...d.sections];
+    Object.entries(map).forEach(([name, items]) => {
+      // Match by section ID first (manual mode stores IDs), then by name (AI mode stores names)
+      const byId = secs.find((s) => s.id === name);
+      const byName = !byId ? secs.find((s) => s.title.toLowerCase() === name.toLowerCase()) : null;
+      const existing = byId || byName;
+      if (existing) secs = secs.map((s) => s.id === existing.id ? { ...s, items: [...s.items, ...items] } : s);
+      else secs.push({ id: uid(), title: name, due: "2026-03-28", items });
+    });
+    newData = { ...newData, sections: secs };
 
     // Save document record
     if (importFileMeta) {
@@ -303,16 +336,49 @@ export default function App() {
 
       {/* Edit Task */}
       {editId && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setEditId(null)}>
-          <div onClick={(e) => e.stopPropagation()} className="rounded-2xl p-5 w-full max-w-sm" style={{ background: theme.bgCard, border: `1px solid ${theme.border}` }}>
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => { setEditId(null); setSubtasks(null); }}>
+          <div onClick={(e) => e.stopPropagation()} className="rounded-2xl p-5 w-full max-w-md" style={{ background: theme.bgCard, border: `1px solid ${theme.border}` }}>
             <div className="font-bold mb-3" style={{ fontSize: 14 }}>Edit Task</div>
             <textarea value={editText} onChange={(e) => setEditText(e.target.value)} rows={2} className="w-full p-2 text-xs mb-3 rounded-lg outline-none resize-y box-border" style={inputStyle} />
-            <div className="flex gap-2 mb-4">
+            <div className="flex gap-2 mb-3">
               <select value={editOwner} onChange={(e) => setEditOwner(e.target.value)} className="flex-1 p-2 text-xs rounded-lg outline-none cursor-pointer" style={inputStyle}>{OWNERS.map((o) => <option key={o}>{o}</option>)}</select>
               <select value={editPrio} onChange={(e) => setEditPrio(e.target.value)} className="flex-1 p-2 text-xs rounded-lg outline-none cursor-pointer" style={inputStyle}><option>CRITICAL</option><option>HIGH</option><option>MEDIUM</option></select>
             </div>
+
+            {/* AI Decompose */}
+            <button
+              onClick={decomposeTask}
+              disabled={decomposing}
+              className="w-full flex items-center justify-center gap-1.5 py-2 mb-3 rounded-lg border cursor-pointer font-semibold"
+              style={{ fontSize: 11, background: theme.accentBg, borderColor: theme.accent + "30", color: theme.accent, opacity: decomposing ? 0.6 : 1 }}
+            >
+              {decomposing ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
+              {decomposing ? "Breaking down..." : "Break Into Subtasks"}
+            </button>
+
+            {subtasks && subtasks.length > 0 && (
+              <div className="mb-3 p-3 rounded-lg" style={{ background: theme.bg, border: `1px solid ${theme.border}` }}>
+                <div className="font-semibold mb-2" style={{ fontSize: 10, color: theme.textDim, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                  AI generated {subtasks.length} subtasks
+                </div>
+                {subtasks.map((st, i) => (
+                  <div key={i} className="flex items-start gap-2 mb-1.5 pb-1.5" style={{ borderBottom: i < subtasks.length - 1 ? `1px solid ${theme.border}` : "none" }}>
+                    <span className="font-bold shrink-0 mt-0.5" style={{ fontSize: 10, color: theme.accent }}>{i + 1}</span>
+                    <div style={{ fontSize: 11, color: theme.text, lineHeight: 1.4 }}>{st.text}</div>
+                  </div>
+                ))}
+                <button
+                  onClick={addSubtasks}
+                  className="w-full mt-2 py-2 rounded-lg border-none font-bold cursor-pointer"
+                  style={{ fontSize: 11, background: theme.accent, color: "#fff" }}
+                >
+                  Add {subtasks.length} Subtasks Below This Task
+                </button>
+              </div>
+            )}
+
             <div className="flex gap-2 justify-end">
-              <button onClick={() => setEditId(null)} className="px-4 py-2 rounded-lg border-none text-xs cursor-pointer" style={{ background: theme.bgHover, color: theme.textMuted }}>Cancel</button>
+              <button onClick={() => { setEditId(null); setSubtasks(null); }} className="px-4 py-2 rounded-lg border-none text-xs cursor-pointer" style={{ background: theme.bgHover, color: theme.textMuted }}>Cancel</button>
               <button onClick={saveEdit} className="px-4 py-2 rounded-lg border-none text-xs font-bold cursor-pointer" style={{ background: theme.accent, color: "#fff" }}>Save</button>
             </div>
           </div>
@@ -359,18 +425,20 @@ export default function App() {
               </div>
             ) : importTasks?.length ? (
               <div>
-                {importMode === "manual" ? (
-                  <div className="flex gap-2 mb-3 flex-wrap items-center">
-                    <select value={importSec} onChange={(e) => setImportSec(e.target.value)} className="flex-1 p-2 text-xs rounded-lg outline-none cursor-pointer" style={inputStyle}>
-                      <option value="">Select section...</option>
-                      {d.sections.map((s) => <option key={s.id} value={s.id}>{s.title}</option>)}
-                    </select>
-                    <span style={{ fontSize: 10, color: theme.textDim }}>Assign all:</span>
-                    {OWNERS.map((o) => <button key={o} onClick={() => setAllImportOwner(o)} className="px-2 py-1 rounded-md text-[10px] font-bold border-none cursor-pointer" style={{ background: OWNER_COLORS[o], color: "#000" }}>{o}</button>)}
-                  </div>
-                ) : (
+                {/* Bulk assign controls */}
+                <div className="flex gap-2 mb-3 flex-wrap items-center">
+                  <span style={{ fontSize: 10, fontWeight: 600, color: theme.textDim }}>Set all:</span>
+                  <select onChange={(e) => { if (e.target.value) { setAllImportSection(e.target.value); e.target.selectedIndex = 0; } }} defaultValue="" className="p-1.5 text-[10px] rounded-lg outline-none cursor-pointer" style={inputStyle}>
+                    <option value="" disabled>Section...</option>
+                    {d.sections.map((s) => <option key={s.id} value={importMode === "ai" ? s.title : s.id}>{s.title}</option>)}
+                  </select>
+                  {OWNERS.map((o) => <button key={o} onClick={() => setAllImportOwner(o)} className="px-2 py-1 rounded-md text-[10px] font-bold border-none cursor-pointer" style={{ background: OWNER_COLORS[o], color: "#000" }}>{o}</button>)}
+                </div>
+
+                {importMode === "ai" && (
                   <div style={{ fontSize: 11, color: theme.textMuted, marginBottom: 8 }}>AI organized {importTasks.filter(t => t.include).length} tasks into {[...new Set(importTasks.map(t => t.section))].length} sections.</div>
                 )}
+
                 <div className="max-h-96 overflow-y-auto mb-4 rounded-lg" style={{ border: `1px solid ${theme.border}` }}>
                   {importTasks.map((t) => (
                     <div key={t._id} style={{ padding: "8px 10px", borderBottom: `1px solid ${theme.border}`, opacity: t.include ? 1 : 0.3 }}>
@@ -379,9 +447,15 @@ export default function App() {
                         <div className="flex-1 min-w-0">
                           <div style={{ fontSize: 11, color: theme.text, lineHeight: 1.5 }}>{t.text}</div>
                           <div className="flex gap-1 mt-1 items-center flex-wrap">
+                            <select value={t.section || ""} onChange={(e) => updateImportTask(t._id, "section", e.target.value)} className="px-1 py-0.5 rounded text-[10px] outline-none cursor-pointer" style={{ ...inputStyle, borderColor: !t.section ? "#f59e0b" : theme.border }}>
+                              <option value="">Section...</option>
+                              {d.sections.map((s) => <option key={s.id} value={importMode === "ai" ? s.title : s.id}>{s.title}</option>)}
+                              {importMode === "ai" && t.section && !d.sections.find(s => s.title.toLowerCase() === t.section.toLowerCase()) && (
+                                <option value={t.section}>{t.section} (new)</option>
+                              )}
+                            </select>
                             <select value={t.owner} onChange={(e) => updateImportTask(t._id, "owner", e.target.value)} className="px-1 py-0.5 rounded text-[10px] outline-none cursor-pointer" style={inputStyle}>{OWNERS.map((o) => <option key={o}>{o}</option>)}</select>
                             <select value={t.p} onChange={(e) => updateImportTask(t._id, "p", e.target.value)} className="px-1 py-0.5 rounded text-[10px] outline-none cursor-pointer" style={inputStyle}><option>CRITICAL</option><option>HIGH</option><option>MEDIUM</option></select>
-                            {importMode === "ai" && t.section && <span className="px-1.5 py-0.5 rounded" style={{ fontSize: 9, background: theme.bgHover, color: theme.textMuted }}>{t.section}</span>}
                             <button onClick={() => removeImportTask(t._id)} className="ml-auto bg-transparent border-none cursor-pointer"><Trash2 size={11} color="#ef4444" /></button>
                           </div>
                         </div>
@@ -389,9 +463,12 @@ export default function App() {
                     </div>
                   ))}
                 </div>
-                <div className="flex gap-2 justify-end">
+                <div className="flex gap-2 justify-end items-center">
+                  {importTasks.filter(t => t.include && !t.section).length > 0 && (
+                    <span style={{ fontSize: 10, color: "#f59e0b", marginRight: "auto" }}>⚠ {importTasks.filter(t => t.include && !t.section).length} task(s) need a section</span>
+                  )}
                   <button onClick={() => { setShowImport(false); setImportTasks(null); setImportError(null); setImportFileMeta(null); }} className="px-4 py-2 rounded-lg border-none text-xs cursor-pointer" style={{ background: theme.bgHover, color: theme.textMuted }}>Cancel</button>
-                  <button onClick={doImport} className="px-4 py-2 rounded-lg border-none text-xs font-bold cursor-pointer" style={{ background: (importMode === "ai" || importSec) ? theme.accent : theme.bgHover, color: (importMode === "ai" || importSec) ? "#fff" : theme.textDim }}>Import {importTasks.filter(t => t.include).length} Tasks</button>
+                  <button onClick={doImport} disabled={importTasks.filter(t => t.include).some(t => !t.section)} className="px-4 py-2 rounded-lg border-none text-xs font-bold cursor-pointer" style={{ background: importTasks.filter(t => t.include).every(t => t.section) ? theme.accent : theme.bgHover, color: importTasks.filter(t => t.include).every(t => t.section) ? "#fff" : theme.textDim, opacity: importTasks.filter(t => t.include).some(t => !t.section) ? 0.6 : 1 }}>Import {importTasks.filter(t => t.include).length} Tasks</button>
                 </div>
               </div>
             ) : (
