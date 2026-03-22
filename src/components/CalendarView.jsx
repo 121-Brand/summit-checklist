@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Badge } from "./Shared";
-import { OWNER_COLORS, PRIORITY_COLORS } from "../data";
+import { getOwnerColors, PRIORITY_COLORS } from "../helpers";
 import { useTheme } from "../ThemeContext";
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -16,6 +16,7 @@ function getFirstDayOfMonth(year, month) {
 
 export default function CalendarView({ d, allItems, getStatus, setItemStatus, goToSection }) {
   const { theme } = useTheme();
+  const OWNER_COLORS = getOwnerColors(d);
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth());

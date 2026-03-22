@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Sparkles, Loader2 } from "lucide-react";
 import ItemRow from "./ItemRow";
 import { Badge } from "./Shared";
-import { OWNERS, OWNER_COLORS, PRIORITY_COLORS } from "../data";
+import { getOwners, getOwnerColors, PRIORITY_COLORS } from "../helpers";
 import { useTheme } from "../ThemeContext";
 
 const daysUntil = (d) => Math.ceil((new Date(d + "T23:59:59") - new Date()) / 86400000);
@@ -17,6 +17,8 @@ export default function FocusView({
   selected, setSelected, editHandlers,
 }) {
   const { theme } = useTheme();
+  const OWNERS = getOwners(d);
+  const OWNER_COLORS = getOwnerColors(d);
   const [aiRecs, setAiRecs] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
 

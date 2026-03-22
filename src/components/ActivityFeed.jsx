@@ -1,6 +1,6 @@
 import { CheckCircle2, Upload, Trash2, Clock, Edit3, AlertTriangle } from "lucide-react";
 import { useTheme } from "../ThemeContext";
-import { OWNER_COLORS } from "../data";
+import { getOwnerColors } from "../helpers";
 
 const timeAgo = (ts) => {
   if (!ts) return "";
@@ -14,6 +14,7 @@ const timeAgo = (ts) => {
 
 export default function ActivityFeed({ d }) {
   const { theme } = useTheme();
+  const OWNER_COLORS = getOwnerColors(d);
 
   // Build activity from completion log + document uploads
   const activities = [];

@@ -1,10 +1,12 @@
 import { useState, useRef } from "react";
 import { Badge } from "./Shared";
-import { OWNERS, OWNER_COLORS, PRIORITY_COLORS, STATUS_COLORS } from "../data";
+import { getOwners, getOwnerColors, PRIORITY_COLORS, STATUS_COLORS } from "../helpers";
 import { useTheme } from "../ThemeContext";
 
 export default function KanbanBoard({ allItems, d, getStatus, setItemStatus }) {
   const { theme } = useTheme();
+  const OWNERS = getOwners(d);
+  const OWNER_COLORS = getOwnerColors(d);
   const [groupBy, setGroupBy] = useState("status"); // status | owner | section | priority
   const [filterOwner, setFilterOwner] = useState("All");
   const dragItem = useRef(null);

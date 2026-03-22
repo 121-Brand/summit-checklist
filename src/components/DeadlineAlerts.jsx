@@ -1,12 +1,13 @@
 import { AlertTriangle, Clock, X } from "lucide-react";
 import { useTheme } from "../ThemeContext";
 import { Badge } from "./Shared";
-import { OWNER_COLORS, PRIORITY_COLORS } from "../data";
+import { getOwnerColors, PRIORITY_COLORS } from "../helpers";
 
 const daysUntil = (d) => Math.ceil((new Date(d + "T23:59:59") - new Date()) / 86400000);
 
 export default function DeadlineAlerts({ d, allItems, onDismiss }) {
   const { theme } = useTheme();
+  const OWNER_COLORS = getOwnerColors(d);
 
   const overdue = allItems.filter(i => !d.checks[i.id] && daysUntil(i.due) < 0);
   const dueSoon = allItems.filter(i => !d.checks[i.id] && daysUntil(i.due) >= 0 && daysUntil(i.due) <= 2);

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Download, FileText, FileSpreadsheet, Printer } from "lucide-react";
 import { useTheme } from "../ThemeContext";
-import { OWNER_COLORS, PRIORITY_COLORS } from "../data";
+import { getOwnerColors, PRIORITY_COLORS } from "../helpers";
 
 export default function ExportView({ d, allItems, total, doneCount, pct }) {
   const { theme } = useTheme();

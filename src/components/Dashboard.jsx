@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Sparkles, Upload, Plus, FolderPlus } from "lucide-react";
 import { ProgressBar, ProgressRing, Badge } from "./Shared";
-import { OWNERS, OWNER_COLORS } from "../data";
+import { getOwners, getOwnerColors } from "../helpers";
 import { useTheme } from "../ThemeContext";
 
 const fmtDate = (d) => {
@@ -13,6 +13,8 @@ const uid = () => "t" + Date.now() + Math.random().toString(36).slice(2, 6);
 
 export default function Dashboard({ d, save, allItems, total, doneCount, pct, secStats, goToSection, onSetup, onUpload }) {
   const { theme } = useTheme();
+  const OWNERS = getOwners(d);
+  const OWNER_COLORS = getOwnerColors(d);
   const [showAddSection, setShowAddSection] = useState(false);
   const [newSecName, setNewSecName] = useState("");
   const [newSecDue, setNewSecDue] = useState("2026-03-28");

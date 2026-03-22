@@ -1,11 +1,13 @@
 import { ProgressRing, ProgressBar, Badge } from "./Shared";
-import { OWNERS, OWNER_COLORS, PRIORITY_COLORS } from "../data";
+import { getOwners, getOwnerColors, PRIORITY_COLORS } from "../helpers";
 import { useTheme } from "../ThemeContext";
 
 const daysUntil = (d) => Math.ceil((new Date(d + "T23:59:59") - new Date()) / 86400000);
 
 export default function TeamDashboard({ d, allItems, total, doneCount }) {
   const { theme } = useTheme();
+  const OWNERS = getOwners(d);
+  const OWNER_COLORS = getOwnerColors(d);
 
   // Per-person stats
   const personStats = OWNERS.map(owner => {

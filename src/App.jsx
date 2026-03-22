@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from "react";
 import {
-  Loader2, FileText, Sparkles, Trash2, Link as LinkIcon
+  Loader2, FileText, Sparkles, Trash2, Link as LinkIcon, Calendar as CalIcon
 } from "lucide-react";
-import { OWNERS, OWNER_COLORS } from "./data";
+import { getOwners, getOwnerColors, PRIORITY_COLORS } from "./helpers";
 import { useStore } from "./useStore";
 import { extractText, aiParseTasks } from "./docParser";
 import { useTheme } from "./ThemeContext";
+import { showToast } from "./components/Toasts";
 
 import Sidebar from "./components/Sidebar";
 import Header from "./components/Header";
@@ -15,14 +16,11 @@ import FocusView from "./components/FocusView";
 import KanbanBoard from "./components/KanbanBoard";
 import BurndownChart from "./components/BurndownChart";
 import SettingsPage from "./components/SettingsPage";
-import DocumentHub from "./components/DocumentHub";
 import WelcomeScreen from "./components/WelcomeScreen";
-import ActivityFeed from "./components/ActivityFeed";
 import TeamDashboard from "./components/TeamDashboard";
-import ExportView from "./components/ExportView";
 import DeadlineAlerts from "./components/DeadlineAlerts";
 import CalendarView from "./components/CalendarView";
-import ShareInvite from "./components/ShareInvite";
+import Toasts from "./components/Toasts";
 
 const uid = () => "t" + Date.now() + Math.random().toString(36).slice(2, 6);
 
@@ -60,6 +58,7 @@ export default function App() {
   const [editOwner, setEditOwner] = useState("");
   const [editPrio, setEditPrio] = useState("");
   const [editBlockedBy, setEditBlockedBy] = useState([]);
+  const [editDue, setEditDue] = useState("");
   const [decomposing, setDecomposing] = useState(false);
   const [subtasks, setSubtasks] = useState(null);
 
@@ -148,8 +147,10 @@ export default function App() {
   const save = (nd) => store.saveData(nd);
 
   // ── Computed ──
+  const owners = getOwners(d);
+  const ownerColors = getOwnerColors(d);
   const allItems = [];
-  d.sections.forEach((s) => s.items.forEach((it) => allItems.push({ ...it, sectionId: s.id, sectionTitle: s.title, due: s.due })));
+  d.sections.forEach((s) => s.items.forEach((it) => allItems.push({ ...it, sectionId: s.id, sectionTitle: s.title, due: it.due || s.due })));
   const total = allItems.length;
   const doneCount = allItems.filter((i) => d.checks[i.id]).length;
   const pct = total > 0 ? Math.round((doneCount / total) * 100) : 0;
@@ -163,7 +164,15 @@ export default function App() {
   const toggleCheck = (id) => {
     const nc = { ...d.checks, [id]: !d.checks[id] };
     const lg = [...(d.log || [])];
-    if (!d.checks[id]) lg.push({ id, ts: Date.now() });
+    if (!d.checks[id]) {
+      lg.push({ id, ts: Date.now() });
+      const newDone = allItems.filter(i => nc[i.id]).length;
+      const newPct = total > 0 ? Math.round((newDone / total) * 100) : 0;
+      if (newPct >= 100) showToast("🎉 All tasks complete!", "milestone");
+      else if (newPct >= 75 && pct < 75) showToast("75% done — almost there!", "milestone");
+      else if (newPct >= 50 && pct < 50) showToast("Halfway there! 50% complete", "milestone");
+      else if (newPct >= 25 && pct < 25) showToast("25% down — great start!", "milestone");
+    }
     save({ ...d, checks: nc, log: lg });
   };
 
@@ -187,12 +196,12 @@ export default function App() {
 
   const saveEdit = () => {
     if (!editId) return;
-    save({ ...d, sections: d.sections.map((s) => ({ ...s, items: s.items.map((i) => i.id === editId ? { ...i, text: editText, owner: editOwner, p: editPrio, blockedBy: editBlockedBy.length ? editBlockedBy : undefined } : i) })) });
+    save({ ...d, sections: d.sections.map((s) => ({ ...s, items: s.items.map((i) => i.id === editId ? { ...i, text: editText, owner: editOwner, p: editPrio, due: editDue || undefined, blockedBy: editBlockedBy.length ? editBlockedBy : undefined } : i) })) });
     setEditId(null);
   };
 
   const editHandlers = {
-    start: (item) => { setEditId(item.id); setEditText(item.text); setEditOwner(item.owner); setEditPrio(item.p); setEditBlockedBy(item.blockedBy || []); setSubtasks(null); },
+    start: (item) => { setEditId(item.id); setEditText(item.text); setEditOwner(item.owner); setEditPrio(item.p); setEditDue(item.due || ""); setEditBlockedBy(item.blockedBy || []); setSubtasks(null); },
   };
 
   const decomposeTask = async () => {
@@ -379,12 +388,8 @@ export default function App() {
           {view === "kanban" && <KanbanBoard allItems={allItems} d={d} getStatus={getStatus} setItemStatus={setItemStatus} />}
           {view === "calendar" && <CalendarView d={d} allItems={allItems} getStatus={getStatus} setItemStatus={setItemStatus} goToSection={goToSection} />}
           {view === "team" && <TeamDashboard d={d} allItems={allItems} total={total} doneCount={doneCount} />}
-          {view === "docs" && <DocumentHub d={d} save={save} onUpload={triggerUpload} />}
           {view === "burndown" && <BurndownChart d={d} total={total} doneCount={doneCount} />}
-          {view === "activity" && <ActivityFeed d={d} />}
-          {view === "export" && <ExportView d={d} allItems={allItems} total={total} doneCount={doneCount} pct={pct} />}
-          {view === "share" && <ShareInvite d={d} save={save} store={store} />}
-          {view === "settings" && <SettingsPage d={d} save={save} store={store} onUpload={triggerUpload} onClearProject={clearProject} />}
+          {view === "settings" && <SettingsPage d={d} save={save} store={store} onUpload={triggerUpload} onClearProject={clearProject} allItems={allItems} total={total} doneCount={doneCount} pct={pct} />}
         </div>
       </div>
 
@@ -397,8 +402,12 @@ export default function App() {
             <div className="font-bold mb-3" style={{ fontSize: 14 }}>Edit Task</div>
             <textarea value={editText} onChange={(e) => setEditText(e.target.value)} rows={2} className="w-full p-2 text-xs mb-3 rounded-lg outline-none resize-y box-border" style={inputStyle} />
             <div className="flex gap-2 mb-3">
-              <select value={editOwner} onChange={(e) => setEditOwner(e.target.value)} className="flex-1 p-2 text-xs rounded-lg outline-none cursor-pointer" style={inputStyle}>{OWNERS.map((o) => <option key={o}>{o}</option>)}</select>
+              <select value={editOwner} onChange={(e) => setEditOwner(e.target.value)} className="flex-1 p-2 text-xs rounded-lg outline-none cursor-pointer" style={inputStyle}>{owners.map((o) => <option key={o}>{o}</option>)}</select>
               <select value={editPrio} onChange={(e) => setEditPrio(e.target.value)} className="flex-1 p-2 text-xs rounded-lg outline-none cursor-pointer" style={inputStyle}><option>CRITICAL</option><option>HIGH</option><option>MEDIUM</option></select>
+              <div className="flex items-center gap-1" style={{ flex: 1 }}>
+                <CalIcon size={12} style={{ color: theme.textDim, shrink: 0 }} />
+                <input type="date" value={editDue} onChange={(e) => setEditDue(e.target.value)} className="w-full p-2 text-xs rounded-lg outline-none" style={inputStyle} />
+              </div>
             </div>
 
             {/* Dependencies */}
@@ -570,6 +579,7 @@ export default function App() {
           </div>
         </div>
       )}
+      <Toasts />
     </div>
   );
 }
