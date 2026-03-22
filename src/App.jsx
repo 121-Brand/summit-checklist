@@ -373,7 +373,7 @@ export default function App() {
         />
 
         <div key={view} className={`mx-auto p-4 sm:p-5 view-enter ${view === "kanban" || view === "team" || view === "calendar" ? "max-w-6xl" : "max-w-4xl"}`}>
-          {view === "dash" && <><DeadlineAlerts d={d} allItems={allItems} /><Dashboard d={d} allItems={allItems} total={total} doneCount={doneCount} pct={pct} secStats={secStats} goToSection={goToSection} onSetup={() => setView("settings")} onUpload={triggerUpload} /></>}
+          {view === "dash" && <><DeadlineAlerts d={d} allItems={allItems} /><Dashboard d={d} save={save} allItems={allItems} total={total} doneCount={doneCount} pct={pct} secStats={secStats} goToSection={goToSection} onSetup={() => setView("settings")} onUpload={triggerUpload} /></>}
           {view === "list" && <TaskList d={d} save={save} secStats={secStats} sectionRefs={sectionRefs} opened={opened} setOpened={setOpened} selected={selected} setSelected={setSelected} toggleCheck={toggleCheck} setItemStatus={setItemStatus} getStatus={getStatus} editHandlers={editHandlers} />}
           {view === "focus" && <FocusView d={d} allItems={allItems} focusPerson={focusPerson} setFocusPerson={setFocusPerson} toggleCheck={toggleCheck} setItemStatus={setItemStatus} getStatus={getStatus} selected={selected} setSelected={setSelected} editHandlers={editHandlers} />}
           {view === "kanban" && <KanbanBoard allItems={allItems} d={d} getStatus={getStatus} setItemStatus={setItemStatus} />}
