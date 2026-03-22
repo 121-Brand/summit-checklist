@@ -21,6 +21,7 @@ import TeamDashboard from "./components/TeamDashboard";
 import DeadlineAlerts from "./components/DeadlineAlerts";
 import CalendarView from "./components/CalendarView";
 import Toasts from "./components/Toasts";
+import ProjectsHub from "./components/ProjectsHub";
 
 const uid = () => "t" + Date.now() + Math.random().toString(36).slice(2, 6);
 
@@ -32,6 +33,7 @@ export default function App() {
     try { return localStorage.getItem("summit-onboarded") === "true"; } catch { return false; }
   });
   const [view, setView] = useState("dash");
+  const [showProjectsHub, setShowProjectsHub] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [opened, setOpened] = useState({});
@@ -352,13 +354,33 @@ export default function App() {
     return <WelcomeScreen onComplete={() => { setOnboarded(true); try { localStorage.setItem("summit-onboarded", "true"); } catch {} }} />;
   }
 
+  // Projects hub view
+  if (showProjectsHub) {
+    return (
+      <>
+        <ProjectsHub store={store}
+          onSelectProject={(id) => { store.loadProject(id); setShowProjectsHub(false); setView("dash"); }}
+          onLogout={() => {
+            try {
+              const keys = Object.keys(localStorage).filter(k => k.startsWith("summit-"));
+              keys.forEach(k => localStorage.removeItem(k));
+            } catch {}
+            setOnboarded(false);
+            setShowProjectsHub(false);
+          }}
+        />
+        <Toasts />
+      </>
+    );
+  }
+
   return (
     <div className="min-h-screen" style={{ background: theme.bg, color: theme.text, fontFamily: "'DM Sans', system-ui, sans-serif" }}>
       <input ref={fileRef} type="file" accept=".csv,.tsv,.txt,.docx,.xlsx,.xls" onChange={handleFile} style={{ display: "none" }} />
 
       {/* Desktop sidebar */}
       {isDesktop && (
-        <Sidebar view={view} setView={setView} collapsed={sidebarCollapsed} setCollapsed={setSidebarCollapsed} pct={pct} />
+        <Sidebar view={view} setView={setView} collapsed={sidebarCollapsed} setCollapsed={setSidebarCollapsed} pct={pct} onGoToProjects={() => setShowProjectsHub(true)} />
       )}
 
       {/* Mobile sidebar overlay */}
@@ -379,12 +401,13 @@ export default function App() {
           onToggleSidebar={() => setMobileSidebarOpen(!mobileSidebarOpen)}
           onUpload={triggerUpload}
           onNewProject={() => setShowNewProj(true)}
+          onGoToProjects={() => setShowProjectsHub(true)}
         />
 
         <div key={view} className={`mx-auto p-4 sm:p-5 view-enter ${view === "kanban" || view === "team" || view === "calendar" ? "max-w-6xl" : "max-w-4xl"}`}>
           {view === "dash" && <><DeadlineAlerts d={d} allItems={allItems} /><Dashboard d={d} save={save} allItems={allItems} total={total} doneCount={doneCount} pct={pct} secStats={secStats} goToSection={goToSection} onSetup={() => setView("settings")} onUpload={triggerUpload} /></>}
           {view === "list" && <TaskList d={d} save={save} secStats={secStats} sectionRefs={sectionRefs} opened={opened} setOpened={setOpened} selected={selected} setSelected={setSelected} toggleCheck={toggleCheck} setItemStatus={setItemStatus} getStatus={getStatus} editHandlers={editHandlers} />}
-          {view === "focus" && <FocusView d={d} allItems={allItems} focusPerson={focusPerson} setFocusPerson={setFocusPerson} toggleCheck={toggleCheck} setItemStatus={setItemStatus} getStatus={getStatus} selected={selected} setSelected={setSelected} editHandlers={editHandlers} />}
+          {view === "focus" && <FocusView d={d} save={save} allItems={allItems} focusPerson={focusPerson} setFocusPerson={setFocusPerson} toggleCheck={toggleCheck} setItemStatus={setItemStatus} getStatus={getStatus} selected={selected} setSelected={setSelected} editHandlers={editHandlers} />}
           {view === "kanban" && <KanbanBoard allItems={allItems} d={d} getStatus={getStatus} setItemStatus={setItemStatus} />}
           {view === "calendar" && <CalendarView d={d} allItems={allItems} getStatus={getStatus} setItemStatus={setItemStatus} goToSection={goToSection} />}
           {view === "team" && <TeamDashboard d={d} allItems={allItems} total={total} doneCount={doneCount} />}

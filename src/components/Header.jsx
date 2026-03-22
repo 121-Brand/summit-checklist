@@ -1,9 +1,9 @@
 import { useState, useRef, useEffect } from "react";
-import { ChevronDown, Menu, FolderPlus, Upload, Pencil, Check, X } from "lucide-react";
+import { ChevronDown, Menu, FolderPlus, Upload, Pencil, Check, X, LayoutGrid } from "lucide-react";
 import { ProgressRing } from "./Shared";
 import { useTheme } from "../ThemeContext";
 
-export default function Header({ store, pct, onToggleSidebar, onUpload, onNewProject }) {
+export default function Header({ store, pct, onToggleSidebar, onUpload, onNewProject, onGoToProjects }) {
   const { theme } = useTheme();
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState("");
@@ -80,6 +80,9 @@ export default function Header({ store, pct, onToggleSidebar, onUpload, onNewPro
 
       <div className="flex-1" />
 
+      <button onClick={onGoToProjects} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border cursor-pointer font-semibold" style={{ fontSize: 11, background: "transparent", borderColor: theme.border, color: theme.textDim }} title="All Projects">
+        <LayoutGrid size={12} /> Projects
+      </button>
       <button onClick={onUpload} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border cursor-pointer font-semibold" style={{ fontSize: 12, background: "transparent", borderColor: theme.border, color: theme.textMuted }}>
         <Upload size={13} /> Import
       </button>

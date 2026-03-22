@@ -15,12 +15,14 @@ const NAV_ITEMS = [
   { id: "settings", label: "Settings", icon: Settings },
 ];
 
-export default function Sidebar({ view, setView, collapsed, setCollapsed, pct }) {
+export default function Sidebar({ view, setView, collapsed, setCollapsed, pct, onGoToProjects }) {
   const { theme } = useTheme();
   return (
     <div className="fixed left-0 top-0 h-full flex flex-col z-50 transition-all duration-300"
       style={{ width: collapsed ? 56 : 200, background: theme.sidebar, borderRight: `1px solid ${theme.sidebarBorder}` }}>
-      <div className="flex items-center gap-2 px-3 shrink-0" style={{ height: 56, borderBottom: `1px solid ${theme.sidebarBorder}` }}>
+      <div className="flex items-center gap-2 px-3 shrink-0 cursor-pointer" onClick={onGoToProjects}
+        style={{ height: 56, borderBottom: `1px solid ${theme.sidebarBorder}` }}
+        title="All Projects">
         <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: `linear-gradient(135deg, #f59e0b, ${theme.accent})` }}>
           <Clipboard size={14} color="#0f172a" strokeWidth={2.5} />
         </div>
