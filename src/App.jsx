@@ -61,6 +61,7 @@ export default function App() {
   const [editPrio, setEditPrio] = useState("");
   const [editBlockedBy, setEditBlockedBy] = useState([]);
   const [editDue, setEditDue] = useState("");
+  const [editSection, setEditSection] = useState("");
   const [decomposing, setDecomposing] = useState(false);
   const [subtasks, setSubtasks] = useState(null);
 
@@ -198,12 +199,33 @@ export default function App() {
 
   const saveEdit = () => {
     if (!editId) return;
-    save({ ...d, sections: d.sections.map((s) => ({ ...s, items: s.items.map((i) => i.id === editId ? { ...i, text: editText, owner: editOwner, p: editPrio, due: editDue || undefined, blockedBy: editBlockedBy.length ? editBlockedBy : undefined } : i) })) });
+    const updatedItem = { text: editText, owner: editOwner, p: editPrio, due: editDue || undefined, blockedBy: editBlockedBy.length ? editBlockedBy : undefined };
+    // Find current section
+    const currentSec = d.sections.find(s => s.items.some(i => i.id === editId));
+    let newSections = d.sections;
+    if (editSection && currentSec && editSection !== currentSec.id) {
+      // Move task to different section
+      const item = currentSec.items.find(i => i.id === editId);
+      const merged = { ...item, ...updatedItem };
+      newSections = newSections.map(s => {
+        if (s.id === currentSec.id) return { ...s, items: s.items.filter(i => i.id !== editId) };
+        if (s.id === editSection) return { ...s, items: [...s.items, merged] };
+        return s;
+      });
+    } else {
+      newSections = newSections.map(s => ({ ...s, items: s.items.map(i => i.id === editId ? { ...i, ...updatedItem } : i) }));
+    }
+    save({ ...d, sections: newSections });
     setEditId(null);
   };
 
   const editHandlers = {
-    start: (item) => { setEditId(item.id); setEditText(item.text); setEditOwner(item.owner); setEditPrio(item.p); setEditDue(item.due || ""); setEditBlockedBy(item.blockedBy || []); setSubtasks(null); },
+    start: (item) => {
+      setEditId(item.id); setEditText(item.text); setEditOwner(item.owner); setEditPrio(item.p);
+      setEditDue(item.due || ""); setEditBlockedBy(item.blockedBy || []); setSubtasks(null);
+      const sec = d.sections.find(s => s.items.some(i => i.id === item.id));
+      setEditSection(sec?.id || "");
+    },
   };
 
   const decomposeTask = async () => {
@@ -351,7 +373,7 @@ export default function App() {
   const inputStyle = { background: theme.bg, border: `1px solid ${theme.border}`, color: theme.text };
 
   if (!onboarded) {
-    return <WelcomeScreen onComplete={() => { setOnboarded(true); try { localStorage.setItem("summit-onboarded", "true"); } catch {} }} />;
+    return <WelcomeScreen onComplete={() => { setOnboarded(true); setShowProjectsHub(true); try { localStorage.setItem("summit-onboarded", "true"); } catch {} }} />;
   }
 
   // Projects hub view
@@ -431,6 +453,14 @@ export default function App() {
                 <CalIcon size={12} style={{ color: theme.textDim, shrink: 0 }} />
                 <input type="date" value={editDue} onChange={(e) => setEditDue(e.target.value)} className="w-full p-2 text-xs rounded-lg outline-none" style={inputStyle} />
               </div>
+            </div>
+
+            {/* Move to section */}
+            <div className="flex gap-2 mb-3 items-center">
+              <span style={{ fontSize: 10, fontWeight: 700, color: theme.textDim }}>Section:</span>
+              <select value={editSection} onChange={(e) => setEditSection(e.target.value)} className="flex-1 p-2 text-xs rounded-lg outline-none cursor-pointer" style={inputStyle}>
+                {d.sections.map(s => <option key={s.id} value={s.id}>{s.title}</option>)}
+              </select>
             </div>
 
             {/* Dependencies */}
