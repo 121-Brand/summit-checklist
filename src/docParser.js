@@ -1,4 +1,28 @@
 // Parses various file types and returns extracted text
+// Dynamic imports with retry on chunk load failure
+
+async function loadMammoth() {
+  try {
+    return await import("mammoth");
+  } catch (e) {
+    if (e.message?.includes("dynamically imported module")) {
+      throw new Error("App was updated — please refresh the page and try again.");
+    }
+    throw e;
+  }
+}
+
+async function loadXLSX() {
+  try {
+    return await import("xlsx");
+  } catch (e) {
+    if (e.message?.includes("dynamically imported module")) {
+      throw new Error("App was updated — please refresh the page and try again.");
+    }
+    throw e;
+  }
+}
+
 export async function extractText(file) {
   const ext = file.name.split(".").pop().toLowerCase();
   
@@ -8,14 +32,14 @@ export async function extractText(file) {
   }
   
   if (ext === "docx") {
-    const mammoth = await import("mammoth");
+    const mammoth = await loadMammoth();
     const arrayBuffer = await file.arrayBuffer();
     const result = await mammoth.extractRawText({ arrayBuffer });
     return { text: result.value, type: "docx", lines: result.value.split("\n").map(l => l.trim()).filter(l => l.length > 2) };
   }
   
   if (ext === "xlsx" || ext === "xls") {
-    const XLSX = await import("xlsx");
+    const XLSX = await loadXLSX();
     const arrayBuffer = await file.arrayBuffer();
     const workbook = XLSX.read(arrayBuffer, { type: "array" });
     let allText = "";
@@ -46,10 +70,7 @@ export async function aiParseTasks(text, projectContext) {
   const response = await fetch("/api/parse-tasks", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      text: text.slice(0, 15000),
-      context: projectContext
-    }),
+    body: JSON.stringify({ text: text.slice(0, 15000), context: projectContext }),
   });
   
   if (!response.ok) {
