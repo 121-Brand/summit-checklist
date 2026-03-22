@@ -302,7 +302,7 @@ export default function App() {
         goal: d.context?.goal || "complete project checklist",
         description: d.context?.description || "",
         priorityStrategy: d.context?.priorityStrategy || "",
-        team: d.context?.team || OWNERS.map(o => ({ name: o, role: "" })),
+        team: d.context?.team || owners.map(o => ({ name: o, role: "" })),
         deadline: d.context?.deadline || "2026-03-28",
         sections: d.sections.map(s => s.title),
       };
@@ -582,7 +582,7 @@ export default function App() {
                     <option value="" disabled>Section...</option>
                     {d.sections.map((s) => <option key={s.id} value={importMode === "ai" ? s.title : s.id}>{s.title}</option>)}
                   </select>
-                  {OWNERS.map((o) => <button key={o} onClick={() => setAllImportOwner(o)} className="px-2 py-1 rounded-md text-[10px] font-bold border-none cursor-pointer" style={{ background: OWNER_COLORS[o], color: "#000" }}>{o}</button>)}
+                  {owners.map((o) => <button key={o} onClick={() => setAllImportOwner(o)} className="px-2 py-1 rounded-md text-[10px] font-bold border-none cursor-pointer" style={{ background: ownerColors[o], color: "#000" }}>{o}</button>)}
                 </div>
 
                 {importMode === "ai" && (
@@ -604,7 +604,7 @@ export default function App() {
                                 <option value={t.section}>{t.section} (new)</option>
                               )}
                             </select>
-                            <select value={t.owner} onChange={(e) => updateImportTask(t._id, "owner", e.target.value)} className="px-1 py-0.5 rounded text-[10px] outline-none cursor-pointer" style={inputStyle}>{OWNERS.map((o) => <option key={o}>{o}</option>)}</select>
+                            <select value={t.owner} onChange={(e) => updateImportTask(t._id, "owner", e.target.value)} className="px-1 py-0.5 rounded text-[10px] outline-none cursor-pointer" style={inputStyle}>{owners.map((o) => <option key={o}>{o}</option>)}</select>
                             <select value={t.p} onChange={(e) => updateImportTask(t._id, "p", e.target.value)} className="px-1 py-0.5 rounded text-[10px] outline-none cursor-pointer" style={inputStyle}><option>CRITICAL</option><option>HIGH</option><option>MEDIUM</option></select>
                             <button onClick={() => removeImportTask(t._id)} className="ml-auto bg-transparent border-none cursor-pointer"><Trash2 size={11} color="#ef4444" /></button>
                           </div>
